@@ -82,6 +82,7 @@ from .managers.residual_heat_tracker import AcReboundTracker, ResidualHeatTracke
 from .managers.valve_manager import ValveManager
 from .managers.weather_manager import WeatherManager
 from .managers.window_manager import WindowManager
+from .managers.write_tracker import RoomMindWriteTracker
 from .utils.device_utils import (
     build_rooms_devices_map,
     configured_valves,
@@ -212,6 +213,8 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         self._compressor_manager = CompressorGroupManager()
         # AC evaporator drying (anti-odour): bounded fan run after cooling
         self._coil_dry_manager = AcCoilDryManager(hass)
+        # RoomMind's own climate writes, so thermostat follow can tell them from a user's change
+        self.write_tracker = RoomMindWriteTracker()
         # Heat source orchestration state (per room)
         self._heat_source_states: dict[str, str] = {}
         # Track which rooms already have entity platform entities registered

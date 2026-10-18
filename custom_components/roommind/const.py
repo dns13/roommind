@@ -183,6 +183,10 @@ RESIDUAL_HEAT_CUTOFF = 0.02  # below this q_residual is treated as zero
 AC_REBOUND_TAU_MINUTES = 10.0
 AC_REBOUND_CUTOFF = 0.01  # below this the rebound charge is treated as zero
 
+# Thermostat follow: a setpoint changed on a room's device becomes the room target
+FOLLOW_SETTLE_S: int = 30  # after RoomMind's last write to a device, its state may still be an echo
+FOLLOW_ECHO_HISTORY_S: int = 900  # how long RoomMind's sent setpoints count as possible late echoes
+
 # Blind/cover control
 COVER_SOLAR_MIN: float = 0.15
 COVER_HYSTERESIS: float = 1.0

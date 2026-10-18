@@ -1879,6 +1879,30 @@ def test_register_websocket_commands(hass):
         assert mock_reg.call_count == 13
 
 
+@pytest.mark.asyncio
+async def test_save_room_follow_thermostat_roundtrip(ws_hass, store, connection):
+    """Thermostat follow is saved with the room."""
+    await store.async_load()
+    msg = {
+        "id": 2,
+        "type": "roommind/rooms/save",
+        "area_id": "kitchen",
+        "thermostats": ["climate.kitchen"],
+        "follow_thermostat": True,
+    }
+    await _save_room(ws_hass, connection, msg)
+    room = connection.send_result.call_args[0][1]["room"]
+    assert room["follow_thermostat"] is True
+
+
+def test_save_room_follow_thermostat_invalid_rejected():
+    import voluptuous as vol
+
+    schema = websocket_save_room._ws_schema
+    with pytest.raises(vol.Invalid):
+        schema({"id": 1, "type": "roommind/rooms/save", "area_id": "kitchen", "follow_thermostat": "maybe"})
+
+
 # ---------------------------------------------------------------------------
 # Heating system type field tests
 # ---------------------------------------------------------------------------

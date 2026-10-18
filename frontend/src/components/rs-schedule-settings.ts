@@ -15,6 +15,7 @@ import {
 } from "../utils/temperature";
 import { RsScheduleBase } from "./shared/rs-schedule-base";
 import { inputStyles } from "../styles/input-styles";
+import "./shared/rs-toggle-row";
 
 /** Mirrors _WEEKDAYS in the backend's schedule_utils.py. */
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -42,6 +43,7 @@ export class RsScheduleSettings extends RsScheduleBase {
   @property({ type: Number }) public ecoCool = 27.0;
   @property({ type: String }) public climateMode: ClimateMode = "auto";
   @property({ attribute: false }) public scheduleTempWarnings: ScheduleTempWarning[] = [];
+  @property({ type: Boolean }) public followThermostat = false;
 
   static styles = [
     RsScheduleBase.sharedStyles,
@@ -84,6 +86,27 @@ export class RsScheduleSettings extends RsScheduleBase {
       .view-temps span {
         font-weight: 500;
         color: var(--primary-text-color);
+      }
+
+      .manual-changes {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid var(--divider-color, #eee);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .manual-changes-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+      }
+
+      .view-manual {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+        margin-top: 8px;
       }
 
       .view-selector-info {
@@ -212,6 +235,15 @@ export class RsScheduleSettings extends RsScheduleBase {
             `
       }
       ${
+        this.followThermostat
+          ? html`<div class="view-manual">
+              ${localize("schedule.manual_view", l, {
+                value: localize("schedule.manual_view_follow", l),
+              })}
+            </div>`
+          : nothing
+      }
+      ${
         this.scheduleSelectorEntity
           ? html`<div class="view-selector-info">
               ${localize("schedule.view_selector_prefix", l)}
@@ -248,7 +280,7 @@ export class RsScheduleSettings extends RsScheduleBase {
         localize("schedule.selector_warning", l),
         (value) => this._onSelectorEntityChange(value),
       )}
-      ${this._renderTemperatureInputs(l)}
+      ${this._renderTemperatureInputs(l)} ${this._renderManualChanges(l)}
     `;
   }
 
@@ -426,6 +458,29 @@ export class RsScheduleSettings extends RsScheduleBase {
         </div>
       </div>
       <div class="fallback-hint">${localize("schedule.comfort_hint", l)}</div>
+    `;
+  }
+
+  // ─── Manual changes ────────────────────────────────────────────
+
+  private _renderManualChanges(l: string) {
+    return html`
+      <div class="manual-changes">
+        <div class="manual-changes-title">${localize("schedule.manual_title", l)}</div>
+        <rs-toggle-row
+          .label=${localize("schedule.manual_follow", l)}
+          .hint=${localize("schedule.manual_follow_hint", l)}
+          .checked=${this.followThermostat}
+          @toggle-changed=${(e: CustomEvent<boolean>) =>
+            this.dispatchEvent(
+              new CustomEvent("follow-thermostat-changed", {
+                detail: { value: e.detail },
+                bubbles: true,
+                composed: true,
+              }),
+            )}
+        ></rs-toggle-row>
+      </div>
     `;
   }
 

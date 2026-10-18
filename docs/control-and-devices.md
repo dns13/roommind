@@ -93,6 +93,10 @@ This only applies in rooms with an external room sensor and to devices that repo
 
 In `Proportional` mode the boosted heating setpoint stays one step (`target_temp_step`, 0.5 °C if the device reports none) below the device's `max_temp`, and never below the room target. Some integrations reject exactly their own `max_temp`, which made the Dyson Heat/Cool purifier ignore the 37°C setpoint. The cooling floor (`min_temp`) is unchanged.
 
+#### Turning the device by hand
+
+With `Take over changes made on the thermostat` on (room settings, Schedule & Temperatures → Manual changes), a setpoint turned on the device becomes the room target. RoomMind reads it as a room temperature: in `Direct` mode the setpoint offset is taken off (only with an external room sensor, like when sending), in `Proportional` mode the value is used as it is. In `Proportional` mode the device then moves on to the boosted, scaled or idle setpoint RoomMind computes for the new target, so the value on the device does not stay where it was turned. See the [room climate entity](../README.md#following-the-rooms-thermostats) for what is followed and how long it holds.
+
 ## Direct Valve Control (TRVs)
 
 Some TRVs let Home Assistant set the valve opening itself through `number` entities, for example the SONOFF TRVZB in Zigbee2MQTT (`valve_opening_degree` and `valve_closing_degree`). With a setpoint, a TRV opens its valve fully as soon as it wants heat, so the radiator runs at full power in short bursts. With direct valve control RoomMind holds the valve at the opening the room needs, for example 30 %, for as long as it is needed.

@@ -79,6 +79,7 @@ from .managers.head_offset_tracker import HeadOffsetTracker
 from .managers.heat_source_orchestrator import HeatSourcePlan, evaluate_heat_sources
 from .managers.mold_manager import MoldManager
 from .managers.residual_heat_tracker import AcReboundTracker, ResidualHeatTracker
+from .managers.thermostat_follow_manager import ThermostatFollowManager
 from .managers.valve_manager import ValveManager
 from .managers.weather_manager import WeatherManager
 from .managers.window_manager import WindowManager
@@ -214,6 +215,8 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         self._coil_dry_manager = AcCoilDryManager(hass)
         # RoomMind's own climate writes, so thermostat follow can tell them from a user's change
         self.write_tracker = RoomMindWriteTracker()
+        # Setpoints turned on a room's device become the room target (rooms with follow_thermostat)
+        self.thermostat_follow = ThermostatFollowManager(hass, self)
         # Heat source orchestration state (per room)
         self._heat_source_states: dict[str, str] = {}
         # Track which rooms already have entity platform entities registered
@@ -469,6 +472,8 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             await store.async_save_settings({"coil_dry_state": self._coil_dry_manager.get_state()})
             self._coil_dry_manager.state_dirty = False
 
+        self.thermostat_follow.async_sync(rooms)
+
         self.rooms = room_states
         return {"rooms": room_states}
 
@@ -637,6 +642,15 @@ class RoomMindCoordinator(DataUpdateCoordinator):
     def clear_override_seed(self, area_id: str) -> None:
         """Forget the seed marker: the override now holds values the user chose."""
         self._override_seeded_at.pop(area_id, None)
+
+    def is_room_switching_off(self, area_id: str) -> bool:
+        """True while the next cycle still has to switch the room's devices off."""
+        return area_id in self._rooms_to_switch_off
+
+    def is_device_busy(self, entity_id: str) -> bool:
+        """True while valve protection or coil drying, not the room target, sets the device."""
+        coil_dry = self._coil_dry_manager.state_for(entity_id)
+        return self._valve_manager.is_entity_cycling(entity_id) or bool(coil_dry and coil_dry.phase is not None)
 
     def is_override_seed_pending(self, area_id: str) -> bool:
         """Return True while a fresh seed is still masked (read-only, unlike the masking itself)."""

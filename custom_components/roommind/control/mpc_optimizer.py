@@ -12,6 +12,7 @@ from ..const import (
     MODE_COOLING,
     MODE_HEATING,
     MODE_IDLE,
+    POWER_GAIN_DECAY_H,
     SLOW_SYSTEM_START_PENALTY,
 )
 from .residual_heat import advance_rebound, compute_residual_heat, get_min_run_blocks, mean_rebound
@@ -33,6 +34,18 @@ PREHEAT_MAX_LEAD_HOURS = 12.0
 # Predictions are clamped to [temp_min, temp_max], but never closer than this to where the
 # room starts: a room already past a bound must still see which action moves it back.
 CLAMP_HEADROOM_K = 5.0
+
+
+def power_decay_series(q_power: float, n_blocks: int, dt_minutes: float) -> list[float]:
+    """Metered device power (kW) per plan block: the reading now, decaying with POWER_GAIN_DECAY_H.
+
+    Each block gets the mean of the decay over it, so the first block starts at the reading.
+    """
+    if q_power <= 0 or n_blocks <= 0:
+        return []
+    k = dt_minutes / 60.0 / POWER_GAIN_DECAY_H
+    block_mean = (1.0 - math.exp(-k)) / k if k > 0 else 1.0
+    return [q_power * math.exp(-k * i) * block_mean for i in range(n_blocks)]
 
 
 def preheat_max_blocks(comfort_weight: float, dt_minutes: float = 5.0, *, enabled: bool = True) -> int | None:
@@ -142,6 +155,7 @@ class MPCOptimizer:
         solar_series: list[float] | None = None,
         residual_series: list[float] | None = None,
         occupancy_series: list[float] | None = None,
+        power_series: list[float] | None = None,
         initial_mode: str = MODE_IDLE,
         rebound_charge: float | None = None,
     ) -> MPCPlan:
@@ -161,6 +175,8 @@ class MPCOptimizer:
         ``rebound_charge`` is the AC rebound charge now (residual_heat); it
         decays over the plan and warms idle blocks, like ``residual_series``.
         None leaves the air/mass term out.
+
+        ``power_series`` is the power of the room's metered devices per block (kW).
         """
         if cool_target_series is None:
             cool_target_series = list(heat_target_series)
@@ -191,6 +207,7 @@ class MPCOptimizer:
         q_solar = solar_series or [0.0] * n_blocks
         q_residual = residual_series or [0.0] * n_blocks
         q_occupancy = occupancy_series or [0.0] * n_blocks
+        q_power = power_series or [0.0] * n_blocks
 
         actions: list[str] = []
         temp_lo, temp_hi = self._temp_bounds(T_room)
@@ -213,6 +230,7 @@ class MPCOptimizer:
             qs = q_solar[i] if i < len(q_solar) else 0.0
             qr = q_residual[i] if i < len(q_residual) else 0.0
             qo = q_occupancy[i] if i < len(q_occupancy) else 0.0
+            qp = q_power[i] if i < len(q_power) else 0.0
 
             # Determine available actions this block
             available = [MODE_IDLE]
@@ -235,6 +253,7 @@ class MPCOptimizer:
                 future_solar = q_solar[i:] if q_solar else None
                 future_residual = q_residual[i:] if q_residual else None
                 future_occupancy = q_occupancy[i:] if q_occupancy else None
+                future_power = q_power[i:] if q_power else None
                 for action in available:
                     cost = self._evaluate_action(
                         action,
@@ -249,6 +268,7 @@ class MPCOptimizer:
                         future_solar=future_solar,
                         future_residual=future_residual,
                         future_occupancy=future_occupancy,
+                        future_power=future_power,
                         rebound_charge=charge,
                     )
                     if self.start_penalty and action == MODE_HEATING and last_action != MODE_HEATING:
@@ -267,6 +287,7 @@ class MPCOptimizer:
                     dt_minutes,
                     q_solar=q_solar,
                     q_occupancy=q_occupancy,
+                    q_power=q_power,
                     continuing=last_action == MODE_HEATING,
                 )
                 if deadline:
@@ -285,6 +306,7 @@ class MPCOptimizer:
                 q_solar=qs,
                 q_residual=qr,
                 q_occupancy=qo,
+                q_power=qp,
                 rebound_charge=charge,
             )
             if best_action == MODE_IDLE:
@@ -309,6 +331,7 @@ class MPCOptimizer:
                     q_solar=qs,
                     q_residual=qr,
                     q_occupancy=qo,
+                    q_power=qp,
                     rebound_charge=charge,
                 )
                 pf = max(pf, MIN_POWER_FRACTION) if pf_mode == best_action else MIN_POWER_FRACTION
@@ -351,6 +374,7 @@ class MPCOptimizer:
                 q_solar=qs,
                 q_residual=qr if Q == 0.0 else 0.0,
                 q_occupancy=qo,
+                q_power=qp,
                 q_rebound=qb,
             )
             next_temp = max(temp_lo, min(next_temp, temp_hi))
@@ -388,6 +412,7 @@ class MPCOptimizer:
         *,
         q_solar: list[float],
         q_occupancy: list[float],
+        q_power: list[float] | None = None,
         continuing: bool = False,
     ) -> int:
         """Blocks from *i* to the rising heat target that waiting would miss.
@@ -420,6 +445,7 @@ class MPCOptimizer:
                 dt_minutes,
                 q_solar=q_solar[j] if j < len(q_solar) else 0.0,
                 q_occupancy=q_occupancy[j] if j < len(q_occupancy) else 0.0,
+                q_power=q_power[j] if q_power and j < len(q_power) else 0.0,
             )
             target = heat_target_series[j + 1]
             if target > now and T < target - PREHEAT_DEADLINE_MARGIN:
@@ -436,6 +462,7 @@ class MPCOptimizer:
         solar_series: list[float] | None = None,
         residual_series: list[float] | None = None,
         occupancy_series: list[float] | None = None,
+        power_series: list[float] | None = None,
         rebound_charge: float | None = None,
     ) -> list[float]:
         """Replay a plan's actions under different disturbance series.
@@ -451,6 +478,7 @@ class MPCOptimizer:
         q_solar = solar_series or [0.0] * n_blocks
         q_residual = residual_series or [0.0] * n_blocks
         q_occupancy = occupancy_series or [0.0] * n_blocks
+        q_power = power_series or [0.0] * n_blocks
 
         temp_lo, temp_hi = self._temp_bounds(T_room)
         temperatures: list[float] = [T_room]
@@ -468,6 +496,7 @@ class MPCOptimizer:
             qs = q_solar[i] if i < len(q_solar) else 0.0
             qr = q_residual[i] if i < len(q_residual) else 0.0
             qo = q_occupancy[i] if i < len(q_occupancy) else 0.0
+            qp = q_power[i] if i < len(q_power) else 0.0
             qb, charge = _rebound_step(charge, Q, dt_minutes)
             next_temp = self.model.predict(
                 current_temp,
@@ -477,6 +506,7 @@ class MPCOptimizer:
                 q_solar=qs,
                 q_residual=qr if Q == 0.0 else 0.0,
                 q_occupancy=qo,
+                q_power=qp,
                 q_rebound=qb,
             )
             next_temp = max(temp_lo, min(next_temp, temp_hi))
@@ -499,6 +529,7 @@ class MPCOptimizer:
         future_solar: list[float] | None = None,
         future_residual: list[float] | None = None,
         future_occupancy: list[float] | None = None,
+        future_power: list[float] | None = None,
         rebound_charge: float | None = None,
     ) -> float:
         """Evaluate the cost of taking an action, looking a few steps ahead.
@@ -518,6 +549,7 @@ class MPCOptimizer:
         solar = future_solar or []
         residual = future_residual or []
         occupancy = future_occupancy or []
+        power = future_power or []
         synthesis_enabled = (
             action == MODE_HEATING
             and self._lookahead_blocks > LOOKAHEAD_BASE_BLOCKS
@@ -536,6 +568,7 @@ class MPCOptimizer:
                 q_solar=solar[0] if solar else 0.0,
                 q_residual=residual[0] if residual else 0.0,
                 q_occupancy=occupancy[0] if occupancy else 0.0,
+                q_power=power[0] if power else 0.0,
                 rebound_charge=rebound_charge,
             )
 
@@ -544,6 +577,7 @@ class MPCOptimizer:
         for j in range(lookahead):
             qs = solar[j] if j < len(solar) else 0.0
             qo = occupancy[j] if j < len(occupancy) else 0.0
+            qp = power[j] if j < len(power) else 0.0
             # Simulate HVAC for the mode's min run (not just 1 block) to correctly
             # value sustained heating/cooling over the lookahead horizon.
             block_Q = Q if j < run_blocks else 0.0
@@ -562,6 +596,7 @@ class MPCOptimizer:
                     dt_minutes,
                     q_solar=qs,
                     q_occupancy=qo,
+                    q_power=qp,
                     rebound_charge=charge,
                 )
                 pf_j = max(pf_j, MIN_POWER_FRACTION) if pf_mode == MODE_HEATING else MIN_POWER_FRACTION
@@ -590,6 +625,7 @@ class MPCOptimizer:
                 q_solar=qs,
                 q_residual=qr if block_Q == 0.0 else 0.0,
                 q_occupancy=qo,
+                q_power=qp,
                 q_rebound=qb,
             )
             # Clamp temperature in lookahead to prevent cost explosion
@@ -620,6 +656,7 @@ class MPCOptimizer:
         q_solar: float,
         q_residual: float,
         q_occupancy: float,
+        q_power: float = 0.0,
         rebound_charge: float | None = None,
     ) -> float:
         """Power fraction a HEATING/COOLING decision would actually be applied with.
@@ -639,6 +676,7 @@ class MPCOptimizer:
             q_solar=q_solar,
             q_residual=q_residual,
             q_occupancy=q_occupancy,
+            q_power=q_power,
             rebound_charge=rebound_charge,
         )
         return pf if mode == action and pf > 0.0 else 1.0
@@ -685,6 +723,7 @@ class MPCOptimizer:
         q_solar: float = 0.0,
         q_residual: float = 0.0,
         q_occupancy: float = 0.0,
+        q_power: float = 0.0,
         rebound_charge: float | None = None,
     ) -> tuple[float, str]:
         """Analytical closed-form optimal heating/cooling power.
@@ -725,6 +764,12 @@ class MPCOptimizer:
                 T_drift += beta * self.model.Q_occupancy * q_occupancy / alpha
             else:
                 T_drift += self.model.Q_occupancy * q_occupancy * dt_h
+        # Add the heat of the metered devices to drift
+        if q_power > 0:
+            if alpha > 0.01:
+                T_drift += beta * self.model.Q_power * q_power / alpha
+            else:
+                T_drift += self.model.Q_power * q_power * dt_h
         # AC rebound: the air still warming back towards the building mass
         if rebound_charge is not None and rebound_charge > 0:
             fast = self.model.Q_fast * mean_rebound(rebound_charge, 0.0, dt_minutes)

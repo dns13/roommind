@@ -60,6 +60,7 @@ export class RsRoomDetail extends LitElement {
   @state() private _occupancyEcoEnabled = false;
   @state() private _preheatEnabled = true;
   @state() private _occupancyEcoDelay = DEFAULT_OCCUPANCY_ECO_DELAY;
+  @state() private _selectedPowerSensors: Set<string> = new Set();
   @state() private _selectedWindowSensors: Set<string> = new Set();
   @state() private _windowOpenDelay = 0;
   @state() private _windowCloseDelay = 0;
@@ -269,6 +270,7 @@ export class RsRoomDetail extends LitElement {
       this._occupancyEcoEnabled = this.config.occupancy_eco_enabled ?? false;
       this._preheatEnabled = this.config.preheat_enabled ?? true;
       this._occupancyEcoDelay = this.config.occupancy_eco_delay ?? DEFAULT_OCCUPANCY_ECO_DELAY;
+      this._selectedPowerSensors = new Set(this.config.power_sensors ?? []);
       this._selectedWindowSensors = new Set(this.config.window_sensors ?? []);
       this._windowOpenDelay = this.config.window_open_delay ?? 0;
       this._windowCloseDelay = this.config.window_close_delay ?? 0;
@@ -312,6 +314,7 @@ export class RsRoomDetail extends LitElement {
       this._occupancyEcoEnabled = false;
       this._preheatEnabled = true;
       this._occupancyEcoDelay = DEFAULT_OCCUPANCY_ECO_DELAY;
+      this._selectedPowerSensors = new Set();
       this._selectedWindowSensors = new Set();
       this._windowOpenDelay = 0;
       this._windowCloseDelay = 0;
@@ -526,6 +529,7 @@ export class RsRoomDetail extends LitElement {
                       .occupancySensors=${this._selectedOccupancySensors}
                       .occupancyEcoEnabled=${this._occupancyEcoEnabled}
                       .occupancyEcoDelay=${this._occupancyEcoDelay}
+                      .powerSensors=${this._selectedPowerSensors}
                       .windowSensors=${this._selectedWindowSensors}
                       .windowOpenDelay=${this._windowOpenDelay}
                       .windowCloseDelay=${this._windowCloseDelay}
@@ -789,6 +793,7 @@ export class RsRoomDetail extends LitElement {
             .occupancySensors=${this._selectedOccupancySensors}
             .occupancyEcoEnabled=${this._occupancyEcoEnabled}
             .occupancyEcoDelay=${this._occupancyEcoDelay}
+            .powerSensors=${this._selectedPowerSensors}
             .windowSensors=${this._selectedWindowSensors}
             .windowOpenDelay=${this._windowOpenDelay}
             .windowCloseDelay=${this._windowCloseDelay}
@@ -1017,6 +1022,8 @@ export class RsRoomDetail extends LitElement {
       this._occupancyEcoEnabled = value as boolean;
     } else if (key === "occupancy_eco_delay") {
       this._occupancyEcoDelay = value as number;
+    } else if (key === "power_sensors") {
+      this._selectedPowerSensors = new Set(value as string[]);
     } else if (key === "window_sensors") {
       this._selectedWindowSensors = new Set(value as string[]);
     } else if (key === "window_open_delay") {
@@ -1163,6 +1170,7 @@ export class RsRoomDetail extends LitElement {
         occupancy_eco_enabled: this._occupancyEcoEnabled,
         occupancy_eco_delay: this._occupancyEcoDelay,
         preheat_enabled: this._preheatEnabled,
+        power_sensors: [...this._selectedPowerSensors],
         window_sensors: [...this._selectedWindowSensors],
         window_open_delay: this._windowOpenDelay,
         window_close_delay: this._windowCloseDelay,

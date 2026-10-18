@@ -256,6 +256,7 @@ async def build_analytics_data(
             # EKF uncertainty: sqrt(P[0][0]) as proxy for sigma_e
             sigma_proxy = math.sqrt(max(est._P[0][0], 0.0))
             has_occupancy_sensors = len(room_config.get("occupancy_sensors", [])) > 0
+            power_now_kw = coordinator.rooms.get(area_id, {}).get("power_kw")
             model_info = {
                 "confidence": est.confidence,
                 "model": rc.to_dict(),
@@ -269,6 +270,10 @@ async def build_analytics_data(
                 "prediction_std_idle": round(pred_std_idle, 4),
                 "prediction_std_heating": round(pred_std_heat, 4),
                 "has_occupancy_sensors": has_occupancy_sensors,
+                "has_power_sensors": bool(room_config.get("power_sensors")),
+                # Q_power is the gain per kW; this is what the devices running now add
+                "power_now_kw": power_now_kw,
+                "power_gain_now": round(rc.Q_power * (power_now_kw or 0.0), 3),
                 # Q_solar is the gain at full sun (1000 W/m²); these are what it means now and today
                 "solar_gain_now": round(
                     rc.Q_solar
@@ -392,6 +397,7 @@ async def build_analytics_data(
                         heating_duration_minutes=sim_heat_dur,
                         last_power_fraction=sim_last_pf,
                         q_occupancy=sim_q_occupancy,
+                        q_power=coordinator.rooms.get(area_id, {}).get("power_kw") or 0.0,
                         q_rebound=coordinator._rebound_tracker.get_charge(area_id),
                         previous_mode=sim_prev_mode,
                         mode_elapsed_minutes=sim_mode_elapsed,

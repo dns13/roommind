@@ -9,7 +9,7 @@ import { inputStyles } from "../styles/input-styles";
 import { DEFAULT_OCCUPANCY_ECO_DELAY, MIN_OCCUPANCY_ECO_DELAY } from "../utils/constants";
 import "./shared/rs-toggle-row";
 
-type SensorKind = "temp" | "humidity" | "occupancy" | "window";
+type SensorKind = "temp" | "humidity" | "occupancy" | "power" | "window";
 
 @customElement("rs-sensor-section")
 export class RsSensorSection extends LitElement {
@@ -20,6 +20,7 @@ export class RsSensorSection extends LitElement {
   @property({ attribute: false }) public occupancySensors: Set<string> = new Set();
   @property({ type: Boolean }) public occupancyEcoEnabled = false;
   @property({ type: Number }) public occupancyEcoDelay = DEFAULT_OCCUPANCY_ECO_DELAY;
+  @property({ attribute: false }) public powerSensors: Set<string> = new Set();
   @property({ attribute: false }) public windowSensors: Set<string> = new Set();
   @property({ type: Number }) public windowOpenDelay = 0;
   @property({ type: Number }) public windowCloseDelay = 0;
@@ -395,9 +396,16 @@ export class RsSensorSection extends LitElement {
     const hasTempSensor = !!this.temperatureSensor;
     const hasHumiditySensor = !!this.humiditySensor;
     const hasOccupancySensors = this.occupancySensors.size > 0;
+    const hasPowerSensors = this.powerSensors.size > 0;
     const hasWindowSensors = this.windowSensors.size > 0;
 
-    if (!hasTempSensor && !hasHumiditySensor && !hasOccupancySensors && !hasWindowSensors) {
+    if (
+      !hasTempSensor &&
+      !hasHumiditySensor &&
+      !hasOccupancySensors &&
+      !hasPowerSensors &&
+      !hasWindowSensors
+    ) {
       return nothing;
     }
 
@@ -433,6 +441,14 @@ export class RsSensorSection extends LitElement {
                     </div>`
                   : nothing
               }
+            `
+          : nothing
+      }
+      ${
+        hasPowerSensors
+          ? html`
+              <div class="section-subtitle">${localize("devices.power_sensors", lang)}</div>
+              ${[...this.powerSensors].map((id) => this._renderPowerViewRow(id))}
             `
           : nothing
       }
@@ -503,6 +519,30 @@ export class RsSensorSection extends LitElement {
           >${friendlyName}</span
         >
         ${displayValue ? html`<span class="view-value">${displayValue}</span>` : nothing}
+      </div>
+    `;
+  }
+
+  /** "350 W" / "1.20 kW", "" without a reading. */
+  private _formatPower(entityId: string): string {
+    const entityState = this.hass.states[entityId];
+    const raw = entityState?.state;
+    if (!raw || raw === "unknown" || raw === "unavailable" || isNaN(Number(raw))) return "";
+    const unit = entityState?.attributes?.unit_of_measurement as string | undefined;
+    const watts = Number(raw) * (unit === "kW" ? 1000 : unit === "MW" ? 1e6 : 1);
+    return Math.abs(watts) >= 1000 ? `${(watts / 1000).toFixed(2)} kW` : `${Math.round(watts)} W`;
+  }
+
+  private _renderPowerViewRow(entityId: string) {
+    const entityState = this.hass.states[entityId];
+    const friendlyName = (entityState?.attributes?.friendly_name as string) || entityId;
+    const value = this._formatPower(entityId);
+    return html`
+      <div class="view-row">
+        <span class="view-name entity-link" @click=${() => openEntityInfo(this, entityId)}
+          >${friendlyName}</span
+        >
+        ${value ? html`<span class="view-value">${value}</span>` : nothing}
       </div>
     `;
   }
@@ -578,6 +618,16 @@ export class RsSensorSection extends LitElement {
       (id) => !areaOccupancyIds.has(id),
     );
 
+    const areaPowerSensors = this.hass?.states
+      ? allAreaEntities.filter(
+          (e) =>
+            e.entity_id.startsWith("sensor.") &&
+            this.hass.states[e.entity_id]?.attributes?.device_class === "power",
+        )
+      : [];
+    const areaPowerIds = new Set(areaPowerSensors.map((e) => e.entity_id));
+    const externalPowerSensors = [...this.powerSensors].filter((id) => !areaPowerIds.has(id));
+
     const areaWindowSensors = this.hass?.states
       ? allAreaEntities.filter(
           (e) =>
@@ -620,6 +670,19 @@ export class RsSensorSection extends LitElement {
         externalSensors: externalOccupancySensors,
         selectedCount: this.occupancySensors.size,
         extras: this._renderOccupancyExtras(lang),
+      })}
+      ${this._renderBlock({
+        kind: "power",
+        icon: "mdi:flash",
+        title: localize("devices.power_sensors", lang),
+        emptyText: localize("devices.no_power_sensors", lang),
+        areaSensors: areaPowerSensors,
+        externalSensors: externalPowerSensors,
+        selectedCount: this.powerSensors.size,
+        extras: html`<div class="delay-hint">
+          <ha-icon icon="mdi:information-outline"></ha-icon>
+          ${localize("devices.power_sensors_hint", lang)}
+        </div>`,
       })}
       ${this._renderBlock({
         kind: "window",
@@ -801,15 +864,23 @@ export class RsSensorSection extends LitElement {
     const friendlyName = (state?.attributes?.friendly_name as string) || entityId;
     const lang = this.hass.language;
 
-    if (kind === "occupancy" || kind === "window") {
-      const set = kind === "occupancy" ? this.occupancySensors : this.windowSensors;
+    if (kind === "occupancy" || kind === "window" || kind === "power") {
+      const set =
+        kind === "occupancy"
+          ? this.occupancySensors
+          : kind === "power"
+            ? this.powerSensors
+            : this.windowSensors;
       const isSelected = set.has(entityId);
       const isOn = state?.state === "on";
       const dotClass = kind === "window" ? "occupancy-dot window-dot" : "occupancy-dot";
+      const power = kind === "power" ? this._formatPower(entityId) : "";
       const onChange = (checked: boolean) =>
         kind === "occupancy"
           ? this._onOccupancyToggle(entityId, checked)
-          : this._onWindowToggle(entityId, checked);
+          : kind === "power"
+            ? this._onPowerToggle(entityId, checked)
+            : this._onWindowToggle(entityId, checked);
       return html`
         <div
           class="row ${isSelected ? "selected" : ""}"
@@ -838,7 +909,13 @@ export class RsSensorSection extends LitElement {
             </div>
             <div class="row-eid">${entityId}</div>
           </div>
-          <span class="${dotClass} ${isOn ? "on" : "off"}"></span>
+          ${
+            kind === "power"
+              ? power
+                ? html`<span class="value-chip">${power}</span>`
+                : nothing
+              : html`<span class="${dotClass} ${isOn ? "on" : "off"}"></span>`
+          }
         </div>
       `;
     }
@@ -883,10 +960,11 @@ export class RsSensorSection extends LitElement {
     if (this.temperatureSensor === id) return false;
     if (this.humiditySensor === id) return false;
     if (this.occupancySensors.has(id)) return false;
+    if (this.powerSensors.has(id)) return false;
     if (this.windowSensors.has(id)) return false;
     if (id.startsWith("sensor.")) {
       const dc = this.hass.states[id]?.attributes?.device_class;
-      return dc === "temperature" || dc === "humidity";
+      return dc === "temperature" || dc === "humidity" || dc === "power";
     }
     if (id.startsWith("binary_sensor.")) {
       const dc = this.hass.states[id]?.attributes?.device_class;
@@ -929,7 +1007,11 @@ export class RsSensorSection extends LitElement {
       this._onSensorSelected(entityId, "temp");
     } else {
       const dc = this.hass.states[entityId]?.attributes?.device_class;
-      this._onSensorSelected(entityId, dc === "humidity" ? "humidity" : "temp");
+      if (dc === "power") {
+        if (!this.powerSensors.has(entityId)) this._onPowerToggle(entityId, true);
+      } else {
+        this._onSensorSelected(entityId, dc === "humidity" ? "humidity" : "temp");
+      }
     }
     this._pickerOpen = false;
   };
@@ -952,6 +1034,19 @@ export class RsSensorSection extends LitElement {
     this.dispatchEvent(
       new CustomEvent("sensor-changed", {
         detail: { key: "occupancy_sensors", value: [...next] },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private _onPowerToggle(entityId: string, checked: boolean) {
+    const next = new Set(this.powerSensors);
+    if (checked) next.add(entityId);
+    else next.delete(entityId);
+    this.dispatchEvent(
+      new CustomEvent("sensor-changed", {
+        detail: { key: "power_sensors", value: [...next] },
         bubbles: true,
         composed: true,
       }),

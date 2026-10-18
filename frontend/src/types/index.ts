@@ -3,6 +3,7 @@
  */
 
 export type ClimateMode = "auto" | "heat_only" | "cool_only";
+export type OverrideDurationMode = "schedule" | "minutes" | "permanent";
 
 export type RoomMode = "idle" | "heating" | "cooling";
 
@@ -158,6 +159,8 @@ export interface RoomConfig {
   heat_source_outdoor_threshold?: number;
   heat_source_ac_min_outdoor?: number;
   climate_control_enabled?: boolean;
+  override_duration_mode?: OverrideDurationMode;
+  override_duration_minutes?: number;
   live?: RoomLiveData;
 }
 

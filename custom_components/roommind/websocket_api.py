@@ -20,7 +20,10 @@ from .const import (
     DEFAULT_CONFLICT_RESOLUTION,
     DEFAULT_CONTROL_MODE,
     DOMAIN,
+    MAX_OVERRIDE_DURATION_MINUTES,
+    MIN_OVERRIDE_DURATION_MINUTES,
     OVERRIDE_CUSTOM,
+    OVERRIDE_DURATION_MODES,
     OVERRIDE_TYPES,
     build_override_live,
     is_override_suppressed,
@@ -150,6 +153,8 @@ _ROOM_SAVE_FIELDS = (
     "heat_source_ac_min_outdoor",
     "valve_protection_exclude",
     "climate_control_enabled",
+    "override_duration_mode",
+    "override_duration_minutes",
 )
 
 _SETTINGS_SAVE_FIELDS = (
@@ -445,6 +450,10 @@ async def websocket_list_rooms(
         vol.Optional("heat_source_outdoor_threshold"): vol.All(vol.Coerce(float), vol.Range(min=-20, max=25)),
         vol.Optional("heat_source_ac_min_outdoor"): vol.All(vol.Coerce(float), vol.Range(min=-30, max=5)),
         vol.Optional("climate_control_enabled"): bool,
+        vol.Optional("override_duration_mode"): vol.In(OVERRIDE_DURATION_MODES),
+        vol.Optional("override_duration_minutes"): vol.All(
+            vol.Coerce(int), vol.Range(min=MIN_OVERRIDE_DURATION_MINUTES, max=MAX_OVERRIDE_DURATION_MINUTES)
+        ),
     }
 )
 @websocket_api.async_response

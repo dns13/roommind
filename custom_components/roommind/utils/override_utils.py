@@ -16,7 +16,7 @@ from ..const import (
     OVERRIDE_BOOST,
     is_override_active,
 )
-from .schedule_utils import mask_override_band, next_schedule_change, override_preset_band
+from .schedule_utils import mask_override_band, override_preset_band, override_until_for_room
 
 if TYPE_CHECKING:
     from ..coordinator import RoomMindCoordinator
@@ -92,7 +92,7 @@ async def async_store_room_override(
     cool: float | None,
     override_type: str,
 ) -> None:
-    """Store a manual override that holds until the active schedule's next change.
+    """Store a manual override that holds for the room's override duration.
 
     The caller refreshes the coordinator once its own state is written.
     """
@@ -104,7 +104,7 @@ async def async_store_room_override(
         {
             "override_heat": heat,
             "override_cool": cool,
-            "override_until": next_schedule_change(coordinator.hass, room),
+            "override_until": override_until_for_room(coordinator.hass, room),
             "override_type": override_type,
         },
     )

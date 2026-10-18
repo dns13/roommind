@@ -16,7 +16,9 @@ from .const import (
     DEFAULT_HEAT_SOURCE_AC_MIN_OUTDOOR,
     DEFAULT_HEAT_SOURCE_OUTDOOR_THRESHOLD,
     DEFAULT_HEAT_SOURCE_PRIMARY_DELTA,
+    DEFAULT_OVERRIDE_DURATION_MINUTES,
     DOMAIN,
+    OVERRIDE_DURATION_SCHEDULE,
 )
 from .utils.device_utils import (
     devices_to_legacy,
@@ -288,6 +290,8 @@ class RoomMindStore:
             ),
             "heat_source_ac_min_outdoor": config.get("heat_source_ac_min_outdoor", DEFAULT_HEAT_SOURCE_AC_MIN_OUTDOOR),
             "climate_control_enabled": config.get("climate_control_enabled", True),
+            "override_duration_mode": config.get("override_duration_mode", OVERRIDE_DURATION_SCHEDULE),
+            "override_duration_minutes": config.get("override_duration_minutes", DEFAULT_OVERRIDE_DURATION_MINUTES),
         }
         _single_temps_to_cool_side(room, config, room["climate_mode"])
         # Directional device sync for new rooms (truthiness check, not just presence)

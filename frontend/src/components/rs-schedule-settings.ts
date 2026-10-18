@@ -1,6 +1,11 @@
 import { html, css, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
-import type { ScheduleEntry, ClimateMode, ScheduleTempWarning } from "../types";
+import type {
+  ScheduleEntry,
+  ClimateMode,
+  OverrideDurationMode,
+  ScheduleTempWarning,
+} from "../types";
 import { localize } from "../utils/localize";
 import {
   formatTemp,
@@ -15,6 +20,8 @@ import {
 } from "../utils/temperature";
 import { RsScheduleBase } from "./shared/rs-schedule-base";
 import { inputStyles } from "../styles/input-styles";
+import "./shared/rs-radio-group";
+import "./shared/rs-threshold-field";
 
 /** Mirrors _WEEKDAYS in the backend's schedule_utils.py. */
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -42,6 +49,8 @@ export class RsScheduleSettings extends RsScheduleBase {
   @property({ type: Number }) public ecoCool = 27.0;
   @property({ type: String }) public climateMode: ClimateMode = "auto";
   @property({ attribute: false }) public scheduleTempWarnings: ScheduleTempWarning[] = [];
+  @property({ type: String }) public overrideDurationMode: OverrideDurationMode = "schedule";
+  @property({ type: Number }) public overrideDurationMinutes = 120;
 
   static styles = [
     RsScheduleBase.sharedStyles,
@@ -84,6 +93,32 @@ export class RsScheduleSettings extends RsScheduleBase {
       .view-temps span {
         font-weight: 500;
         color: var(--primary-text-color);
+      }
+
+      .manual-changes {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid var(--divider-color, #eee);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .manual-changes-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+      }
+
+      .manual-changes-label {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+      }
+
+      .view-manual {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+        margin-top: 8px;
       }
 
       .view-selector-info {
@@ -211,6 +246,9 @@ export class RsScheduleSettings extends RsScheduleBase {
               </div>
             `
       }
+      <div class="view-manual">
+        ${localize("schedule.manual_view", l, { value: this._manualDurationText(l) })}
+      </div>
       ${
         this.scheduleSelectorEntity
           ? html`<div class="view-selector-info">
@@ -248,7 +286,7 @@ export class RsScheduleSettings extends RsScheduleBase {
         localize("schedule.selector_warning", l),
         (value) => this._onSelectorEntityChange(value),
       )}
-      ${this._renderTemperatureInputs(l)}
+      ${this._renderTemperatureInputs(l)} ${this._renderManualChanges(l)}
     `;
   }
 
@@ -427,6 +465,65 @@ export class RsScheduleSettings extends RsScheduleBase {
       </div>
       <div class="fallback-hint">${localize("schedule.comfort_hint", l)}</div>
     `;
+  }
+
+  // ─── Manual changes ────────────────────────────────────────────
+
+  private _manualDurationText(l: string): string {
+    if (this.overrideDurationMode === "minutes") {
+      return localize("schedule.manual_view_minutes", l, { minutes: this.overrideDurationMinutes });
+    }
+    if (this.overrideDurationMode === "permanent") {
+      return localize("schedule.manual_duration_permanent", l);
+    }
+    return localize("schedule.manual_duration_schedule", l);
+  }
+
+  private _renderManualChanges(l: string) {
+    return html`
+      <div class="manual-changes">
+        <div class="manual-changes-title">${localize("schedule.manual_title", l)}</div>
+        <div class="manual-changes-label">${localize("schedule.manual_duration_label", l)}</div>
+        <rs-radio-group
+          .options=${[
+            { value: "schedule", label: localize("schedule.manual_duration_schedule", l) },
+            { value: "minutes", label: localize("schedule.manual_duration_minutes", l) },
+            { value: "permanent", label: localize("schedule.manual_duration_permanent", l) },
+          ]}
+          .selected=${this.overrideDurationMode}
+          @selected-changed=${(e: CustomEvent<string>) =>
+            this._emitValue("override-duration-mode-changed", e.detail)}
+        ></rs-radio-group>
+        ${
+          this.overrideDurationMode === "minutes"
+            ? html`<rs-threshold-field
+                .label=${localize("schedule.manual_minutes_label", l)}
+                .value=${this.overrideDurationMinutes}
+                .min=${5}
+                .max=${1440}
+                .step=${15}
+                suffix="min"
+                @value-changed=${(e: CustomEvent<number>) =>
+                  this._emitValue(
+                    "override-duration-minutes-changed",
+                    // The backend rejects the whole room save outside 5–1440
+                    Math.min(1440, Math.max(5, Math.round(e.detail))),
+                  )}
+              ></rs-threshold-field>`
+            : nothing
+        }
+      </div>
+    `;
+  }
+
+  private _emitValue(name: string, value: unknown) {
+    this.dispatchEvent(
+      new CustomEvent(name, {
+        detail: { value },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   // ─── Selector value text ───────────────────────────────────────

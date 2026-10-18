@@ -179,6 +179,10 @@ RESIDUAL_HEAT_CUTOFF = 0.02  # below this q_residual is treated as zero
 AC_REBOUND_TAU_MINUTES = 10.0
 AC_REBOUND_CUTOFF = 0.01  # below this the rebound charge is treated as zero
 
+# Power sensors (device heat): the MPC lets the measured power decay with this time
+# constant over its plan; a device may switch off at any time, nothing says when.
+POWER_GAIN_DECAY_H: float = 1.0
+
 # Blind/cover control
 COVER_SOLAR_MIN: float = 0.15
 COVER_HYSTERESIS: float = 1.0

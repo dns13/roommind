@@ -50,6 +50,7 @@ class TestFlush:
             q_residual=0.0,
             q_occupancy=0.0,
             q_rebound=None,
+            q_power=0.0,
         )
         assert "room1" not in mgr._accumulated_dt
         assert "room1" not in mgr._accumulated_mode
@@ -338,3 +339,42 @@ def test_rebound_none_drops_the_batch_mean():
     mgr.process("room1", current_temp=24.0, q_rebound=0.6, **common)
     mgr.process("room1", current_temp=24.2, q_rebound=None, **common)
     assert model_manager.update.call_args.kwargs["q_rebound"] is None
+
+
+def _power_common(**overrides):
+    common = dict(
+        T_outdoor=5.0,
+        ekf_mode="idle",
+        ekf_pf=0.0,
+        window_open=False,
+        raw_open=False,
+        q_residual=0.0,
+        shading_factor=1.0,
+        q_solar=0.0,
+        can_heat=True,
+        can_cool=False,
+        dt_minutes=1.5,
+    )
+    common.update(overrides)
+    return common
+
+
+def test_power_is_averaged_over_the_batch():
+    """A device switching within a batch counts with its share of the time."""
+    model_manager = MagicMock()
+    mgr = EkfTrainingManager(model_manager)
+    mgr.process("room1", current_temp=20.0, q_power=0.4, **_power_common())
+    model_manager.update.assert_not_called()
+    mgr.process("room1", current_temp=20.1, q_power=0.0, **_power_common())
+    assert model_manager.update.call_args.kwargs["q_power"] == pytest.approx(0.2)
+
+
+def test_power_batch_mean_goes_with_a_mode_change_flush():
+    model_manager = MagicMock()
+    mgr = EkfTrainingManager(model_manager)
+    mgr.process("room1", current_temp=20.0, q_power=0.3, **_power_common())
+    mgr.process("room1", current_temp=20.1, q_power=0.9, **_power_common(ekf_mode="heating", ekf_pf=1.0))
+    # the idle batch is flushed with its own mean, not the new reading
+    assert model_manager.update.call_args.kwargs["q_power"] == pytest.approx(0.3)
+    mgr.clear("room1")
+    assert "room1" not in mgr._accumulated_power

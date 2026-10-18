@@ -18,6 +18,7 @@
 - **Self-Learning MPC** - Per-room thermal model (Extended Kalman Filter) that learns your home's heating/cooling behavior over time. Automatic fallback to on/off control while learning.
 - **Proportional Valve Control** - TRVs receive calculated setpoints instead of simple on/off, producing smoother temperature curves with less overshoot.
 - **Solar Gain Awareness** - Estimates solar irradiance from sun position and weather data. The model learns each room's solar response and reduces unnecessary heating.
+- **Device Heat from Power Sensors** - Assign power sensors (smart plugs, PC or server meters) to a room. The model learns how much the devices on them warm the room and heats less while they run.
 - **Multi-Scheduler** - Multiple `schedule.*` entities per room with selector switching via `input_boolean` or `input_number`.
 - **Manual Override** - Boost, eco, or custom temperature with configurable duration and instant UI feedback.
 - **Presence Detection** - Link `person.*`, `device_tracker.*`, `binary_sensor.*`, or `input_boolean.*` entities globally or per room. Eco temperature is used when all assigned persons are away.
@@ -99,9 +100,19 @@ In **Full Control**, RoomMind dynamically calculates device setpoints based on M
 
 ### MPC Climate Control
 
-The Extended Kalman Filter observes temperature changes and learns each room's heat loss rate, heating/cooling power, and solar responsiveness. Once calibrated (prediction accuracy < 0.5 C), the MPC optimizer plans ahead and calculates proportional power for smoother control.
+The Extended Kalman Filter observes temperature changes and learns each room's heat loss rate, heating/cooling power, solar responsiveness and, with power sensors, the heat of the devices running in it. Once calibrated (prediction accuracy < 0.5 C), the MPC optimizer plans ahead and calculates proportional power for smoother control.
 
 Until calibrated (~60 idle + ~20 active samples), RoomMind falls back to simple on/off control with hysteresis.
+
+#### Power sensors (device heat)
+
+Devices running in a room heat it: a PC with 300 W warms a small office about as much as a weak radiator. Assign their power sensors to the room under Sensors → Power Sensors (sensor entities with device class `power`, in W or kW).
+
+- **Learning:** RoomMind adds them up and learns how much each kW warms the room ("Device Heat" in the analytics tab, in °C/h per kW). It learns while the devices draw more than 20 W and the room is not heating, the same way as the solar gain.
+- **Planning:** the MPC plans with it and heats less while the devices run. Nothing says when a device switches off, so the plan lets the measured power fade over about an hour.
+- **Better model:** without the sensors, the device heat ends up in the room's loss rate and heating power. With them, those two are learned more accurately as well.
+- **Not counted:** the power of the room's own heaters and ACs. Their heat is already learned as heating power, so a sensor on the same device is ignored with a warning in the log.
+- **Readings:** negative readings (a meter that also counts feed-in) count as 0. An unavailable sensor counts as off.
 
 `Settings -> Control -> Control Mode` decides whether MPC is used at all. **Intelligent (MPC)** is the default. **Simple** keeps every room on the on/off control with hysteresis; the thermal model still learns in the background and feeds the analytics prediction, but it never makes heating or cooling decisions. Automatic blinds then shade from a simpler solar estimate instead of the MPC forecast.
 
@@ -168,7 +179,7 @@ These per-room entities still work but will be removed in a future release. If a
 
 - **Home Assistant** 2026.2+
 - At least one HA area with a `climate.*` entity
-- Optional: temperature sensor, humidity sensor, window sensors, weather entity, schedule helpers, person entities
+- Optional: temperature sensor, humidity sensor, window sensors, power sensors, weather entity, schedule helpers, person entities
 
 No cloud services required - everything runs locally.
 

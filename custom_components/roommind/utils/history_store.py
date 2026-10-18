@@ -23,6 +23,7 @@ DETAIL_FIELDS = [
     "cover_reason",
     "device_setpoint",
     "occupancy",
+    "power_kw",
 ]
 DETAIL_MAX_AGE = 48 * 3600  # 48 hours
 HISTORY_MAX_AGE = 90 * 24 * 3600  # 90 days
@@ -88,6 +89,7 @@ class HistoryStore:
                     "cover_reason": data.get("cover_reason", ""),
                     "device_setpoint": data.get("device_setpoint", ""),
                     "occupancy": data.get("occupancy", ""),
+                    "power_kw": data.get("power_kw", ""),
                 }
             )
 

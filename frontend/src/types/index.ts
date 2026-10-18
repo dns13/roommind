@@ -116,6 +116,7 @@ export interface RoomConfig {
   temperature_sensor: string;
   humidity_sensor: string;
   occupancy_sensors?: string[];
+  power_sensors?: string[];
   window_sensors: string[];
   window_open_delay: number;
   window_close_delay: number;
@@ -285,6 +286,7 @@ export interface AnalyticsData {
       Q_solar: number;
       Q_occupancy: number;
       Q_fast?: number;
+      Q_power?: number;
     };
     n_samples: number;
     n_observations: number;
@@ -296,6 +298,9 @@ export interface AnalyticsData {
     prediction_std_idle: number;
     prediction_std_heating: number;
     has_occupancy_sensors: boolean;
+    has_power_sensors?: boolean;
+    power_now_kw?: number | null;
+    power_gain_now?: number;
     solar_gain_now?: number;
     solar_gain_today_max?: number;
   };

@@ -203,6 +203,20 @@ export class RsAnalyticsModel extends LitElement {
                   )
                 : nothing
             }
+            ${
+              model && m?.has_power_sensors
+                ? stat(
+                    "power_gain",
+                    toDisplayDelta(model.Q_power ?? 0, this.hass).toFixed(1) +
+                      tempUnit(this.hass) +
+                      "/h·kW",
+                    "analytics.power_gain",
+                    "",
+                    "analytics.info.power_gain",
+                    this._powerSub(m),
+                  )
+                : nothing
+            }
             ${stat(
               "accuracy_idle",
               hasIdleData && predStdIdle != null
@@ -252,6 +266,16 @@ export class RsAnalyticsModel extends LitElement {
     return localize("analytics.solar_gain_sub", this.language)
       .replace("{now}", fmt(m.solar_gain_now))
       .replace("{today}", fmt(m.solar_gain_today_max));
+  }
+
+  private _powerSub(m: AnalyticsData["model"] | undefined): string | undefined {
+    if (m?.power_now_kw == null || m.power_gain_now == null) return undefined;
+    return localize("analytics.power_gain_sub", this.language)
+      .replace("{power}", `${Math.round(m.power_now_kw * 1000)} W`)
+      .replace(
+        "{gain}",
+        toDisplayDelta(m.power_gain_now, this.hass).toFixed(1) + tempUnit(this.hass) + "/h",
+      );
   }
 
   private _toggleStat(id: string) {

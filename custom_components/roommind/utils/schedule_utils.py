@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -19,8 +20,13 @@ from ..const import (
     DEFAULT_COMFORT_HEAT,
     DEFAULT_ECO_COOL,
     DEFAULT_ECO_HEAT,
+    DEFAULT_OVERRIDE_DURATION_MINUTES,
+    MAX_OVERRIDE_DURATION_MINUTES,
     MAX_TARGET_TEMP,
+    MIN_OVERRIDE_DURATION_MINUTES,
     MIN_TARGET_TEMP,
+    OVERRIDE_DURATION_MINUTES,
+    OVERRIDE_DURATION_PERMANENT,
     OVERRIDE_ECO,
     TargetTemps,
 )
@@ -364,6 +370,24 @@ def next_schedule_change(hass: HomeAssistant, room: dict) -> float | None:
     if not isinstance(raw, datetime):
         return None
     return raw.timestamp()
+
+
+def override_until_for_room(hass: HomeAssistant, room: dict, now: float | None = None) -> float | None:
+    """Return when a manual target set now ends under the room's override duration, None = until changed.
+
+    Default is the active schedule's next change, like a thermostat's temporary hold.
+    """
+    mode = room.get("override_duration_mode")
+    if mode == OVERRIDE_DURATION_PERMANENT:
+        return None
+    if mode == OVERRIDE_DURATION_MINUTES:
+        try:
+            minutes = int(room.get("override_duration_minutes", DEFAULT_OVERRIDE_DURATION_MINUTES))
+        except (TypeError, ValueError):
+            minutes = DEFAULT_OVERRIDE_DURATION_MINUTES
+        minutes = max(MIN_OVERRIDE_DURATION_MINUTES, min(MAX_OVERRIDE_DURATION_MINUTES, minutes))
+        return (time.time() if now is None else now) + minutes * 60
+    return next_schedule_change(hass, room)
 
 
 async def read_schedule_blocks(

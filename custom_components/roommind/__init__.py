@@ -49,6 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     clear_valve_cache()  # after an unload, which stopped valve control
     coordinator = RoomMindCoordinator(hass, entry)
+    entry.async_on_unload(coordinator.write_tracker.async_start(hass))
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = coordinator

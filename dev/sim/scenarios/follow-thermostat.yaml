@@ -1,0 +1,84 @@
+name: follow-thermostat
+description: >
+  A temperature turned on a room's thermostat becomes the room target (follow_thermostat).
+  Wohnzimmer: proportional TRV whose state trails commands by 30 s. Kueche: direct-mode
+  TRV with a +1 K offset, so 23 on the device means 22 in the room. Both hold until the
+  next schedule change. Buero turns its TRV the same way without follow and
+  stays on schedule. RoomMind's own writes (boosts, setbacks, lagged echoes) never count
+  as a turn on the device.
+tags: [entities, override, schedule]
+start: 2026-01-12T00:00
+duration: 2d
+location: {latitude: 52.5, longitude: 13.4, time_zone: Europe/Berlin}
+weather: {profile: temperate}
+house:
+  building: bestand_teilsaniert
+  outdoor: {sensors: {temperature: sensor.aussen_temp}}
+  rooms:
+    wohnzimmer:
+      floor_area_m2: 22
+      initial: {temperature: 19.0}
+      devices:
+        - entity_id: climate.wz_trv
+          profile: generic_trv
+          quirks: [{type: state_lag, seconds: 30}]
+      sensors: {temperature: {entity_id: sensor.wz_temp}}
+    kueche:
+      floor_area_m2: 12
+      initial: {temperature: 19.0}
+      devices: [{entity_id: climate.ku_trv, profile: generic_trv}]
+      sensors: {temperature: {entity_id: sensor.ku_temp}}
+    buero:
+      floor_area_m2: 14
+      initial: {temperature: 19.0}
+      devices: [{entity_id: climate.bu_trv, profile: generic_trv}]
+      sensors: {temperature: {entity_id: sensor.bu_temp}}
+helpers:
+  schedule:
+    plan_wohnen: {weekdays: ["06:00-08:00", "16:30-22:30"], weekend: ["07:30-23:00"]}
+roommind:
+  settings:
+    outdoor_temp_sensor: sensor.aussen_temp
+  rooms:
+    wohnzimmer:
+      devices: [{entity_id: climate.wz_trv, type: trv, heating_system_type: radiator}]
+      temperature_sensor: sensor.wz_temp
+      climate_mode: heat_only
+      schedules: [{entity_id: schedule.plan_wohnen}]
+      comfort_temp: 21.0
+      eco_temp: 18.0
+      follow_thermostat: true
+    kueche:
+      devices:
+        - {entity_id: climate.ku_trv, type: trv, heating_system_type: radiator, setpoint_mode: direct, setpoint_offset: 1.0}
+      temperature_sensor: sensor.ku_temp
+      climate_mode: heat_only
+      schedules: [{entity_id: schedule.plan_wohnen}]
+      comfort_temp: 21.0
+      eco_temp: 18.0
+      follow_thermostat: true
+    buero:
+      devices: [{entity_id: climate.bu_trv, type: trv, heating_system_type: radiator}]
+      temperature_sensor: sensor.bu_temp
+      climate_mode: heat_only
+      schedules: [{entity_id: schedule.plan_wohnen}]
+      comfort_temp: 21.0
+      eco_temp: 18.0
+timeline:
+  - {at: "+0d10h", do: device.manual, entity_id: climate.wz_trv, temperature: 23.0}
+  - {at: "+0d10h", do: device.manual, entity_id: climate.bu_trv, temperature: 23.0}
+  - {at: "+1d10h", do: device.manual, entity_id: climate.ku_trv, temperature: 23.0}
+expect:
+  # RoomMind's own boosts and setbacks around the morning block are no turn on the device
+  - {check: "room.wohnzimmer.override_active == false and room.kueche.override_active == false", at: "+0d07h", label: own writes in the comfort block not followed}
+  - {check: "room.wohnzimmer.override_active == false and room.kueche.override_active == false", at: "+0d09h55m", label: own setback not followed}
+  - {check: "room.wohnzimmer.override_active == true and room.wohnzimmer.heat_target == 23.0", at: "+0d10h05m", label: turned TRV becomes the room target}
+  - {check: "room.buero.override_active == false and room.buero.heat_target == 18.0", at: "+0d10h05m", label: room without follow stays on schedule}
+  - {check: "room.wohnzimmer.override_active == true", at: "+0d16h25m", label: held until the schedule changes (wohnzimmer)}
+  - {check: "room.wohnzimmer.override_active == false and room.wohnzimmer.heat_target == 21.0", at: "+0d16h35m", label: schedule takes over at its next change (wohnzimmer)}
+  - {check: "room.wohnzimmer.override_active == false", at: "+0d18h", label: lagged echoes of own writes not followed}
+  - {check: "room.wohnzimmer.override_active == false and room.kueche.override_active == false", at: "+1d07h", label: no adoption on the second morning}
+  - {check: "room.kueche.override_active == true and room.kueche.heat_target == 22.0", at: "+1d10h05m", label: direct-mode offset taken off the device value}
+  - {check: "room.kueche.override_active == true", at: "+1d16h25m", label: held until the schedule changes}
+  - {check: "room.kueche.override_active == false and room.kueche.heat_target == 21.0", at: "+1d16h35m", label: schedule takes over at its next change}
+  - {invariant: target_never_empty}

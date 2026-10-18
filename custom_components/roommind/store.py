@@ -292,6 +292,7 @@ class RoomMindStore:
             ),
             "heat_source_ac_min_outdoor": config.get("heat_source_ac_min_outdoor", DEFAULT_HEAT_SOURCE_AC_MIN_OUTDOOR),
             "climate_control_enabled": config.get("climate_control_enabled", True),
+            "follow_thermostat": config.get("follow_thermostat", False),
         }
         _single_temps_to_cool_side(room, config, room["climate_mode"])
         # Directional device sync for new rooms (truthiness check, not just presence)

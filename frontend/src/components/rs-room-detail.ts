@@ -70,6 +70,7 @@ export class RsRoomDetail extends LitElement {
   @state() private _comfortCool = 24.0;
   @state() private _ecoHeat = 17.0;
   @state() private _ecoCool = 27.0;
+  @state() private _followThermostat = false;
   @state() private _error = "";
   @state() private _dirty = false;
   @state() private _editing: EditableSection | null = null;
@@ -279,6 +280,7 @@ export class RsRoomDetail extends LitElement {
       this._comfortCool = this.config.comfort_cool ?? 24.0;
       this._ecoHeat = this.config.eco_heat ?? this.config.eco_temp ?? 17.0;
       this._ecoCool = this.config.eco_cool ?? 27.0;
+      this._followThermostat = this.config.follow_thermostat ?? false;
       this._selectedPresencePersons = this.config.presence_persons ?? [];
       this._displayName = this.config.display_name ?? "";
       this._selectedCovers = new Set(this.config.covers ?? []);
@@ -322,6 +324,7 @@ export class RsRoomDetail extends LitElement {
       this._comfortCool = 24.0;
       this._ecoHeat = 17.0;
       this._ecoCool = 27.0;
+      this._followThermostat = false;
       this._selectedPresencePersons = [];
       this._displayName = "";
       this._selectedCovers = new Set();
@@ -457,6 +460,7 @@ export class RsRoomDetail extends LitElement {
                       .scheduleTempWarnings=${this.config?.live?.schedule_temp_warnings ?? []}
                       .preheatEnabled=${this._preheatEnabled}
                       .showPreheat=${this._showPreheat()}
+                      .followThermostat=${this._followThermostat}
                       .editing=${false}
                       @schedules-changed=${this._onSchedulesChanged}
                       @schedule-selector-changed=${this._onScheduleSelectorChanged}
@@ -722,6 +726,7 @@ export class RsRoomDetail extends LitElement {
             .scheduleTempWarnings=${this.config?.live?.schedule_temp_warnings ?? []}
             .preheatEnabled=${this._preheatEnabled}
             .showPreheat=${this._showPreheat()}
+            .followThermostat=${this._followThermostat}
             .editing=${true}
             @schedules-changed=${this._onSchedulesChanged}
             @schedule-selector-changed=${this._onScheduleSelectorChanged}
@@ -730,6 +735,7 @@ export class RsRoomDetail extends LitElement {
             @eco-heat-changed=${this._onEcoHeatChanged}
             @eco-cool-changed=${this._onEcoCoolChanged}
             @preheat-changed=${this._onPreheatChanged}
+            @follow-thermostat-changed=${this._onFollowThermostatChanged}
           ></rs-schedule-settings>
         </rs-edit-dialog>`;
       case "devices":
@@ -977,6 +983,11 @@ export class RsRoomDetail extends LitElement {
     this._autoSave();
   }
 
+  private _onFollowThermostatChanged(e: CustomEvent<{ value: boolean }>) {
+    this._followThermostat = e.detail.value;
+    this._autoSave();
+  }
+
   private _onDeviceChanged(e: CustomEvent<{ devices: DeviceConfig[] }>) {
     const oldDeviceIds = new Set(this._devices.map((d) => d.entity_id));
     this._devices = e.detail.devices;
@@ -1173,6 +1184,7 @@ export class RsRoomDetail extends LitElement {
         comfort_cool: this._comfortCool,
         eco_heat: this._ecoHeat,
         eco_cool: this._ecoCool,
+        follow_thermostat: this._followThermostat,
         presence_persons: this._selectedPresencePersons.filter((p) => p),
         display_name: this._displayName,
         covers: [...this._selectedCovers],

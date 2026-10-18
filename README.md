@@ -138,11 +138,20 @@ These can be used in HA automations, dashboards, or other integrations.
 
 Attributes: `override_until`, `window_open`, `presence_away`, `occupancy_vacant`, `vacation`. An open window shows as `idle` with `window_open: true`.
 
+#### Following the room's thermostats
+
+With **Take over changes made on the thermostat** (Schedule & Temperatures → Manual changes, off by default), a temperature someone sets directly on a thermostat or AC of the room becomes the room target. It is held like a target set on the room entity: the room entity shows the preset `manual`, and the override ends at the next schedule change. RoomMind then drives all devices of the room again, including the one that was turned.
+
+- **Direct** devices: the device's setpoint offset is taken off, so 23 °C on a device with offset +1 means 22 °C in the room. **Proportional** devices: the value is taken as the room temperature, and the device then jumps to the setpoint RoomMind computes for it (boost, setback or off), see [Setpoint mode](docs/control-and-devices.md#setpoint-mode-proportional-vs-direct).
+- A thermostat sets the heating side. An AC sets the side of its mode (heating or cooling, both for a range); with one setpoint in auto mode, the side the room is running on, or the nearer one while idle. A side the room's climate mode does not use is ignored.
+- Not followed: anything RoomMind sent itself (also when the device reports it late), the device's own presets, a switch between heating and cooling or back into the device's own schedule, values at the device's minimum or maximum (frost and window protection), changes during valve protection and evaporator drying, while a window is open or the room is off, in the first 2 minutes after a start, and changes on a device that belongs to several rooms. A turn on a device RoomMind switched off counts, and so does a turn that takes the device out of its own schedule (`auto`, shown as `heat_cool` for e.g. tado over HomeKit) into `heat` or `cool`, unless RoomMind changed the device within the last 30 seconds. A device going back to its own schedule is not followed.
+- A knob turned in several steps is taken over once, 5 seconds after the last step.
+
 The entity is placed in the room's area once when it is created, so it shows up on area cards and Assist finds it by the area ("set the temperature in the living room to 22"). An area you change or remove later is kept. For voice control, hide the room's own thermostats and ACs from Assist (Settings → Voice assistants → Expose), otherwise Assist finds several climate entities in the room and cannot pick one.
 
 Like every override, one set here also lifts the outdoor temperature limits for heating and cooling while it lasts.
 
-A wall display or a thermostat RoomMind does not control can be linked with an automation: its setpoint → `climate.set_temperature` on the room entity, and the room entity's target → the display, so the display always shows what applies.
+A wall display or a thermostat RoomMind does not control (one that is not a device of the room) can be linked with an automation: its setpoint → `climate.set_temperature` on the room entity, and the room entity's target → the display, so the display always shows what applies.
 
 ### Deprecated entities
 

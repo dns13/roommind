@@ -105,6 +105,7 @@ async def _compute_target_forecast(
     from ..utils.schedule_utils import (
         cap_cool_only_heat,
         get_active_schedule_entity,
+        make_preheat_lead_resolver,
         read_schedule_blocks,
         resolve_targets_at_time,
     )
@@ -128,6 +129,7 @@ async def _compute_target_forecast(
 
     _hass = hass
     converter = lambda v: ha_temp_to_celsius(_hass, v)  # noqa: E731
+    preheat_lead = make_preheat_lead_resolver(schedule_blocks, room)
 
     # Generate forecast points
     now = time.time()
@@ -178,6 +180,8 @@ async def _compute_target_forecast(
                 "target_temp": target,
                 "heat_target": heat_target,
                 "cool_target": cool_target,
+                # How far ahead the simulated controller may plan towards this target (s, None: unlimited)
+                "preheat_lead": preheat_lead(ts),
             }
         )
         ts += interval_minutes * 60

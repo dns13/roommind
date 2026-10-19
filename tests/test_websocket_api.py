@@ -3165,3 +3165,23 @@ def test_clear_sky_peak_today_follows_the_season():
     winter = clear_sky_peak_today(52.5, 13.4, datetime(2026, 1, 12, 9, tzinfo=UTC).timestamp())
     assert 0.7 < summer < 1.0
     assert winter < 0.4 * summer
+
+
+@pytest.mark.asyncio
+async def test_compute_target_forecast_carries_preheat_lead(ws_hass):
+    from custom_components.roommind.websocket_api import _compute_target_forecast
+
+    forecast = await _compute_target_forecast(ws_hass, {"comfort_temp": 21.0, "schedules": []}, {})
+    assert forecast[0]["preheat_lead"] is None
+    forecast = await _compute_target_forecast(
+        ws_hass, {"comfort_temp": 21.0, "schedules": [], "preheat_enabled": False}, {}
+    )
+    assert forecast[0]["preheat_lead"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_save_room_preheat_enabled_roundtrip(ws_hass, store, connection):
+    await store.async_load()
+    msg = {"id": 2, "type": "roommind/rooms/save", "area_id": "office", "thermostats": ["climate.office"]}
+    await _save_room(ws_hass, connection, {**msg, "preheat_enabled": False})
+    assert connection.send_result.call_args[0][1]["room"]["preheat_enabled"] is False

@@ -724,6 +724,7 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             cap_cool_only_heat,
             find_rejected_block_temps,
             get_active_schedule_entity,
+            make_preheat_lead_resolver,
             make_target_resolver,
             read_schedule_blocks,
         )
@@ -772,6 +773,7 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             presence_away=presence_away,
             mold_prevention_delta=mold_prevention_temp_delta,
         )
+        preheat_lead = make_preheat_lead_resolver(schedule_blocks, room)
 
         # After a reload or restart the previous mode is unknown; seed it from what the
         # devices are doing until a cycle has actually controlled the room. The run's
@@ -833,6 +835,7 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             idle_since=self._idle_since.get(area_id),
             has_external_sensor=has_external_sensor,
             target_resolver=target_resolver,
+            preheat_lead=preheat_lead,
             q_solar=self._current_q_solar,
             latitude=self.hass.config.latitude,
             longitude=self.hass.config.longitude,

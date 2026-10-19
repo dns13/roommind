@@ -18,6 +18,24 @@ When a schedule block raises the target (for example eco 17 °C until 06:00, the
 - Underfloor heating uses its own pre-heating that accounts for the heat stored in the screed.
 - `Simple` control mode does not pre-heat.
 
+#### Per room and per schedule block
+
+Pre-heating (and pre-cooling) can be switched off per room: room → Schedule & Temperatures → edit → `Heat or cool ahead of schedule blocks`. The room then starts heating when the block begins. A schedule block can differ from the room with `preheat` in its data, next to `temperature`:
+
+```yaml
+- from: "06:00:00"
+  to: "08:00:00"
+  data:
+    temperature: 22
+    preheat: 45     # at most 45 minutes ahead
+- from: "17:00:00"
+  to: "22:00:00"
+  data:
+    preheat: false  # start with the block
+```
+
+`true` pre-heats as far as RoomMind plans ahead, `false` (or `0`) not at all, a number limits the lead to that many minutes. Without `preheat` the room's switch applies. The `Priority` slider still limits the lead on top. Coasting ahead of a cooler block is not affected.
+
 This setting does **not** change your schedule targets, overrides, comfort temperature, or eco temperature. It only changes how aggressively MPC tries to reach and hold those targets.
 
 ## Thermostat vs Climate Device

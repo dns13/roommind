@@ -1088,3 +1088,27 @@ def test_prediction_uses_the_run_system_of_the_heating_source(monkeypatch, run_s
     )
     assert seen["type"] == expected_type
     assert seen["min_run"] == expected_min_run
+
+
+def test_simulated_controller_respects_preheat_lead(monkeypatch):
+    """The forecast's controller plans towards a block only within the lead the forecast carries."""
+    from custom_components.roommind.control.mpc_optimizer import MPCOptimizer
+
+    seen: list[list[float]] = []
+    real_optimize = MPCOptimizer.optimize
+
+    def optimize(self, *args, **kwargs):
+        seen.append(list(kwargs["heat_target_series"]))
+        return real_optimize(self, *args, **kwargs)
+
+    monkeypatch.setattr(MPCOptimizer, "optimize", optimize)
+    model = RCModel(C=1.0, U=0.5, Q_heat=5.0, Q_cool=5.0)
+    room_config = {
+        "devices": [{"entity_id": "climate.trv", "type": "trv", "role": "auto", "heating_system_type": ""}],
+        "climate_mode": "heat_only",
+    }
+    eco = {"target_temp": 18.0, "heat_target": 18.0, "cool_target": None, "preheat_lead": None}
+    block = {"target_temp": 21.0, "heat_target": 21.0, "cool_target": None, "preheat_lead": 0.0}
+    _simulate_mpc(model, [eco] * 6 + [block] * 6, [5.0] * 12, current_temp=18.0, room_config=room_config, settings={})
+    assert max(seen[0]) == 18.0  # the block 30 minutes ahead stays hidden
+    assert seen[6][0] == 21.0  # once it applies, it is the target

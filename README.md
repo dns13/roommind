@@ -105,7 +105,7 @@ Until calibrated (~60 idle + ~20 active samples), RoomMind falls back to simple 
 
 `Settings -> Control -> Control Mode` decides whether MPC is used at all. **Intelligent (MPC)** is the default. **Simple** keeps every room on the on/off control with hysteresis; the thermal model still learns in the background and feeds the analytics prediction, but it never makes heating or cooling decisions. Automatic blinds then shade from a simpler solar estimate instead of the MPC forecast.
 
-For a more detailed explanation of the `Priority` slider, device types, setpoint modes, idle behavior, and smart source selection, see the [Control and Device Guide](docs/control-and-devices.md).
+For a more detailed explanation of the `Priority` slider, pre-heating per room and per schedule block, device types, setpoint modes, idle behavior, and smart source selection, see the [Control and Device Guide](docs/control-and-devices.md).
 
 ## Entities Created
 

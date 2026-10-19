@@ -62,6 +62,7 @@ from ..utils.device_utils import (
     get_valve_entities,
     has_reliable_hvac_modes,
 )
+from ..utils.schedule_utils import mask_preheat
 from ..utils.temp_utils import celsius_delta_to_ha, celsius_to_ha_temp
 from .direct_valve import async_release_valve, async_set_valve, clear_valve_cache
 from .mpc_optimizer import MPCOptimizer, MPCPlan, preheat_max_blocks, slow_start_penalty
@@ -1312,6 +1313,7 @@ class MPCController:
         previous_mode: str = MODE_IDLE,
         has_external_sensor: bool = True,
         target_resolver: Callable[[float], TargetTemps | float] | None = None,
+        preheat_lead: Callable[[float], float | None] | None = None,
         q_solar: float = 0.0,
         latitude: float = 0.0,
         longitude: float = 0.0,
@@ -1344,6 +1346,8 @@ class MPCController:
         self._model_manager = model_manager
         self._area_id = room_config.get("area_id", "unknown")
         self._target_resolver = target_resolver
+        # Lead (s) the room/schedule block allows towards the target at a time; None: unlimited
+        self._preheat_lead = preheat_lead
         self.last_plan: MPCPlan | None = None
         self._peak_temps_unoccupied: list[float] | None = None
         self.q_solar = q_solar
@@ -1576,7 +1580,12 @@ class MPCController:
                 pairs = cast(list[TargetTemps], raw_targets)
                 raw_heat = [t.heat for t in pairs]
                 raw_cool = [t.cool for t in pairs]
-                filled = [fill_missing_targets(t.heat, t.cool, current_temp) for t in pairs]
+                if self._preheat_lead is not None:
+                    # Pre-heating/pre-cooling switched off or limited for the room or a block:
+                    # its stricter target stays out of the plan until its lead allows it
+                    leads = [self._preheat_lead(now + i * dt_seconds) for i in range(horizon_blocks)]
+                    raw_heat, raw_cool = mask_preheat(raw_heat, raw_cool, leads, dt_seconds)
+                filled = [fill_missing_targets(h, c, current_temp) for h, c in zip(raw_heat, raw_cool, strict=True)]
                 heat_target_series = [h for h, _ in filled]
                 cool_target_series = [c for _, c in filled]
             else:

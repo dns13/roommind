@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -271,6 +271,82 @@ def resolve_targets_at_time(
     if schedule_off_action == "off":
         return TargetTemps(heat=None, cool=None)
     return TargetTemps(heat=eco_heat, cool=eco_cool)
+
+
+# Block data key that sets pre-heating/pre-cooling for a block: true/false, or the
+# longest lead in minutes. Absent: the room's setting.
+PREHEAT_BLOCK_KEY = "preheat"
+_UNSET: Any = object()
+_TRUE_WORDS = ("true", "on", "yes")
+_FALSE_WORDS = ("false", "off", "no")
+
+
+def parse_block_preheat(raw: Any) -> Any:
+    """Lead a block's ``preheat`` value allows, in seconds: None unlimited, 0 none, _UNSET when absent or unusable."""
+    if raw is None:
+        return _UNSET
+    if isinstance(raw, bool):
+        return None if raw else 0.0
+    if isinstance(raw, str):
+        word = raw.strip().lower()
+        if word in _TRUE_WORDS:
+            return None
+        if word in _FALSE_WORDS:
+            return 0.0
+    try:
+        minutes = float(raw)
+    except (TypeError, ValueError):
+        return _UNSET
+    if minutes != minutes:  # NaN
+        return _UNSET
+    return max(0.0, minutes) * 60.0
+
+
+def make_preheat_lead_resolver(schedule_blocks: dict | None, room: dict) -> Callable[[float], float | None]:
+    """How far ahead (seconds) the target that applies at a time may be heated or cooled towards.
+
+    None: as far as the planner looks; 0: not before it applies. The room's
+    ``preheat_enabled`` sets the default, a schedule block's ``preheat`` overrides it.
+    """
+    room_lead: float | None = None if room.get("preheat_enabled", True) else 0.0
+
+    def lead(ts: float) -> float | None:
+        if not schedule_blocks:
+            return room_lead
+        data = find_active_block(schedule_blocks, ts)
+        parsed = parse_block_preheat(data.get(PREHEAT_BLOCK_KEY)) if data is not None else _UNSET
+        return room_lead if parsed is _UNSET else cast(float | None, parsed)
+
+    return lead
+
+
+def mask_preheat(
+    heat: list[float | None],
+    cool: list[float | None],
+    leads: list[float | None],
+    dt_seconds: float,
+) -> tuple[list[float | None], list[float | None]]:
+    """Hide upcoming stricter targets the planner must not work towards yet.
+
+    Block *j* (``j * dt_seconds`` from now) whose lead does not reach back to now
+    keeps the target in force now as its limit: a higher heat target or a lower
+    cool target stays invisible until its lead allows it, a milder one stays as it
+    is (coasting ahead of an eco block is no pre-heat).
+    """
+    if not heat and not cool:
+        return heat, cool
+    h_now = heat[0] if heat else None
+    c_now = cool[0] if cool else None
+    out_heat = list(heat)
+    out_cool = list(cool)
+    for j, lead in enumerate(leads):
+        if lead is None or j * dt_seconds <= lead:
+            continue
+        if j < len(out_heat) and out_heat[j] is not None:
+            out_heat[j] = None if h_now is None else min(cast(float, out_heat[j]), h_now)
+        if j < len(out_cool) and out_cool[j] is not None:
+            out_cool[j] = None if c_now is None else max(cast(float, out_cool[j]), c_now)
+    return out_heat, out_cool
 
 
 def resolve_schedule_index(

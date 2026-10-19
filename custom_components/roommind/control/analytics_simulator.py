@@ -19,6 +19,7 @@ from ..const import (
     is_override_active,
 )
 from ..utils.device_utils import get_ac_eids, get_trv_eids
+from ..utils.schedule_utils import mask_preheat
 from .mpc_controller import (
     HARD_OVERSHOOT_CEILING,
     PLAN_DT_MINUTES,
@@ -377,14 +378,13 @@ def _simulate_mpc(
             )
             horizon = compute_horizon_blocks(model, T, h_tgt if h_tgt is not None else c_tgt)
             window = target_forecast[i : i + horizon]
-            filled = [
-                fill_missing_targets(
-                    tf.get("heat_target", tf["target_temp"]),
-                    tf.get("cool_target", tf["target_temp"]),
-                    T,
-                )
-                for tf in window
-            ]
+            window_heat, window_cool = mask_preheat(
+                [tf.get("heat_target", tf["target_temp"]) for tf in window],
+                [tf.get("cool_target", tf["target_temp"]) for tf in window],
+                [tf.get("preheat_lead") for tf in window],
+                PLAN_DT_MINUTES * 60,
+            )
+            filled = [fill_missing_targets(h, c, T) for h, c in zip(window_heat, window_cool, strict=True)]
             heat_series = [h for h, _ in filled]
             cool_series = [c for _, c in filled]
             remaining_outdoor = outdoor_series[i : i + len(window)]

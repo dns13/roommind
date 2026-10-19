@@ -15,6 +15,7 @@ import {
 } from "../utils/temperature";
 import { RsScheduleBase } from "./shared/rs-schedule-base";
 import { inputStyles } from "../styles/input-styles";
+import "./shared/rs-toggle-row";
 
 /** Mirrors _WEEKDAYS in the backend's schedule_utils.py. */
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -42,6 +43,7 @@ export class RsScheduleSettings extends RsScheduleBase {
   @property({ type: Number }) public ecoCool = 27.0;
   @property({ type: String }) public climateMode: ClimateMode = "auto";
   @property({ attribute: false }) public scheduleTempWarnings: ScheduleTempWarning[] = [];
+  @property({ type: Boolean }) public preheatEnabled = true;
 
   static styles = [
     RsScheduleBase.sharedStyles,
@@ -84,6 +86,19 @@ export class RsScheduleSettings extends RsScheduleBase {
       .view-temps span {
         font-weight: 500;
         color: var(--primary-text-color);
+      }
+
+      .preheat-toggle {
+        display: block;
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid var(--divider-color, #eee);
+      }
+
+      .view-preheat {
+        font-size: 13px;
+        color: var(--secondary-text-color);
+        margin-top: 8px;
       }
 
       .view-selector-info {
@@ -212,6 +227,11 @@ export class RsScheduleSettings extends RsScheduleBase {
             `
       }
       ${
+        this.preheatEnabled
+          ? nothing
+          : html`<div class="view-preheat">${localize("schedule.preheat_off_view", l)}</div>`
+      }
+      ${
         this.scheduleSelectorEntity
           ? html`<div class="view-selector-info">
               ${localize("schedule.view_selector_prefix", l)}
@@ -249,6 +269,20 @@ export class RsScheduleSettings extends RsScheduleBase {
         (value) => this._onSelectorEntityChange(value),
       )}
       ${this._renderTemperatureInputs(l)}
+      <rs-toggle-row
+        class="preheat-toggle"
+        .label=${localize("schedule.preheat_label", l)}
+        .hint=${localize("schedule.preheat_hint", l)}
+        .checked=${this.preheatEnabled}
+        @toggle-changed=${(e: CustomEvent<boolean>) =>
+          this.dispatchEvent(
+            new CustomEvent("preheat-changed", {
+              detail: { value: e.detail },
+              bubbles: true,
+              composed: true,
+            }),
+          )}
+      ></rs-toggle-row>
     `;
   }
 

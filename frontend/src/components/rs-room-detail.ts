@@ -65,6 +65,7 @@ export class RsRoomDetail extends LitElement {
   @state() private _comfortCool = 24.0;
   @state() private _ecoHeat = 17.0;
   @state() private _ecoCool = 27.0;
+  @state() private _preheatEnabled = true;
   @state() private _error = "";
   @state() private _dirty = false;
   @state() private _editing: EditableSection | null = null;
@@ -271,6 +272,7 @@ export class RsRoomDetail extends LitElement {
       this._comfortCool = this.config.comfort_cool ?? 24.0;
       this._ecoHeat = this.config.eco_heat ?? this.config.eco_temp ?? 17.0;
       this._ecoCool = this.config.eco_cool ?? 27.0;
+      this._preheatEnabled = this.config.preheat_enabled ?? true;
       this._selectedPresencePersons = this.config.presence_persons ?? [];
       this._displayName = this.config.display_name ?? "";
       this._selectedCovers = new Set(this.config.covers ?? []);
@@ -311,6 +313,7 @@ export class RsRoomDetail extends LitElement {
       this._comfortCool = 24.0;
       this._ecoHeat = 17.0;
       this._ecoCool = 27.0;
+      this._preheatEnabled = true;
       this._selectedPresencePersons = [];
       this._displayName = "";
       this._selectedCovers = new Set();
@@ -444,6 +447,7 @@ export class RsRoomDetail extends LitElement {
                       .ecoCool=${this._ecoCool}
                       .climateMode=${this._climateMode}
                       .scheduleTempWarnings=${this.config?.live?.schedule_temp_warnings ?? []}
+                      .preheatEnabled=${this._preheatEnabled}
                       .editing=${false}
                       @schedules-changed=${this._onSchedulesChanged}
                       @schedule-selector-changed=${this._onScheduleSelectorChanged}
@@ -690,6 +694,26 @@ export class RsRoomDetail extends LitElement {
             </div>
             <p style="margin-top: 8px">${unsafeHTML(localize("schedule.help_split_note", lang))}</p>
             <p style="margin-top: 12px">
+              <strong>${localize("schedule.help_preheat_title", lang)}</strong>
+            </p>
+            <p>${unsafeHTML(localize("schedule.help_preheat", lang))}</p>
+            <div class="yaml-block">
+              ${unsafeHTML(
+                '- <span class="yaml-key">from</span>: <span class="yaml-value">"06:00:00"</span>\n' +
+                  '  <span class="yaml-key">to</span>: <span class="yaml-value">"08:00:00"</span>\n' +
+                  '  <span class="yaml-key">data</span>:\n' +
+                  '    <span class="yaml-key">temperature</span>: <span class="yaml-value">22</span>\n' +
+                  '    <span class="yaml-key">preheat</span>: <span class="yaml-value">45</span>\n' +
+                  '- <span class="yaml-key">from</span>: <span class="yaml-value">"17:00:00"</span>\n' +
+                  '  <span class="yaml-key">to</span>: <span class="yaml-value">"22:00:00"</span>\n' +
+                  '  <span class="yaml-key">data</span>:\n' +
+                  '    <span class="yaml-key">preheat</span>: <span class="yaml-value">false</span>',
+              )}
+            </div>
+            <p style="margin-top: 8px">
+              ${unsafeHTML(localize("schedule.help_preheat_note", lang))}
+            </p>
+            <p style="margin-top: 12px">
               <strong>${localize("schedule.help_multi_title", lang)}</strong>
             </p>
             <p>${unsafeHTML(localize("schedule.help_multi", lang))}</p>
@@ -705,6 +729,7 @@ export class RsRoomDetail extends LitElement {
             .ecoCool=${this._ecoCool}
             .climateMode=${this._climateMode}
             .scheduleTempWarnings=${this.config?.live?.schedule_temp_warnings ?? []}
+            .preheatEnabled=${this._preheatEnabled}
             .editing=${true}
             @schedules-changed=${this._onSchedulesChanged}
             @schedule-selector-changed=${this._onScheduleSelectorChanged}
@@ -712,6 +737,7 @@ export class RsRoomDetail extends LitElement {
             @comfort-cool-changed=${this._onComfortCoolChanged}
             @eco-heat-changed=${this._onEcoHeatChanged}
             @eco-cool-changed=${this._onEcoCoolChanged}
+            @preheat-changed=${this._onPreheatChanged}
           ></rs-schedule-settings>
         </rs-edit-dialog>`;
       case "devices":
@@ -936,6 +962,11 @@ export class RsRoomDetail extends LitElement {
     this._autoSave();
   }
 
+  private _onPreheatChanged(e: CustomEvent<{ value: boolean }>) {
+    this._preheatEnabled = e.detail.value;
+    this._autoSave();
+  }
+
   private _onDeviceChanged(e: CustomEvent<{ devices: DeviceConfig[] }>) {
     const oldDeviceIds = new Set(this._devices.map((d) => d.entity_id));
     this._devices = e.detail.devices;
@@ -1123,6 +1154,7 @@ export class RsRoomDetail extends LitElement {
         comfort_cool: this._comfortCool,
         eco_heat: this._ecoHeat,
         eco_cool: this._ecoCool,
+        preheat_enabled: this._preheatEnabled,
         presence_persons: this._selectedPresencePersons.filter((p) => p),
         display_name: this._displayName,
         covers: [...this._selectedCovers],

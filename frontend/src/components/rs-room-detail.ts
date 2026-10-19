@@ -15,6 +15,7 @@ import type {
 import "./rs-hero-status";
 import "./rs-climate-mode-selector";
 import "./rs-schedule-settings";
+import "./shared/rs-toggle-row";
 import "./rs-device-section";
 import "./rs-sensor-section";
 import "./rs-section-card";
@@ -46,6 +47,7 @@ export class RsRoomDetail extends LitElement {
   @property({ type: Boolean }) public climateControlActive = true;
 
   @property({ type: Boolean }) public valveProtectionEnabled = false;
+  @property({ type: Boolean }) public centralHeatingEnabled = false;
   @property({ type: Boolean }) public coilDryEnabled = false;
   @property({ type: Number }) public coilDryMinutes = 20;
   @property({ type: String }) public coilDryMode = "fan_only";
@@ -88,6 +90,8 @@ export class RsRoomDetail extends LitElement {
   @state() private _ignorePresence = false;
   @state() private _isOutdoor = false;
   @state() private _valveProtectionExclude: Set<string> = new Set();
+  // null: automatic (rooms with radiator thermostats count)
+  @state() private _centralHeating: boolean | null = null;
   @state() private _climateControlEnabled = true;
   @state() private _heatSourceOrchestration = false;
   @state() private _heatSourcePrimaryDelta = 1.5;
@@ -292,6 +296,7 @@ export class RsRoomDetail extends LitElement {
       this._isOutdoor = this.config.is_outdoor ?? false;
       this._valveProtectionExclude = new Set(this.config.valve_protection_exclude ?? []);
       this._climateControlEnabled = this.config.climate_control_enabled ?? true;
+      this._centralHeating = this.config.central_heating ?? null;
       this._heatSourceOrchestration = this.config.heat_source_orchestration ?? false;
       this._heatSourcePrimaryDelta = this.config.heat_source_primary_delta ?? 1.5;
       this._heatSourceOutdoorThreshold = this.config.heat_source_outdoor_threshold ?? 5.0;
@@ -332,6 +337,7 @@ export class RsRoomDetail extends LitElement {
       this._isOutdoor = false;
       this._valveProtectionExclude = new Set();
       this._climateControlEnabled = true;
+      this._centralHeating = null;
       this._heatSourceOrchestration = false;
       this._heatSourcePrimaryDelta = 1.5;
       this._heatSourceOutdoorThreshold = 5.0;
@@ -754,6 +760,20 @@ export class RsRoomDetail extends LitElement {
             @device-changed=${this._onDeviceChanged}
             @valve-protection-exclude-toggle=${this._onValveProtectionExcludeToggle}
           ></rs-device-section>
+          ${
+            this.centralHeatingEnabled
+              ? html`<rs-toggle-row
+                  style="margin-top: 16px"
+                  .label=${localize("devices.central_heating", lang)}
+                  .hint=${localize("devices.central_heating_hint", lang)}
+                  .checked=${this._centralHeating ?? this._devices.some((d) => d.type === "trv")}
+                  @toggle-changed=${(e: CustomEvent<boolean>) => {
+                    this._centralHeating = e.detail;
+                    this._autoSave();
+                  }}
+                ></rs-toggle-row>`
+              : nothing
+          }
         </rs-edit-dialog>`;
       case "sensors":
         return html`<rs-edit-dialog
@@ -1127,6 +1147,7 @@ export class RsRoomDetail extends LitElement {
         display_name: this._displayName,
         covers: [...this._selectedCovers],
         climate_control_enabled: this._climateControlEnabled,
+        central_heating: this._centralHeating,
         covers_auto_enabled: this._coversAutoEnabled,
         covers_deploy_threshold: this._coversDeployThreshold,
         covers_min_position: this._coversMinPosition,

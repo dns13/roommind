@@ -49,6 +49,7 @@ export class RoomMindPanel extends LitElement {
   @state() private _climateControlActive = true;
   @state() private _presenceEnabled = false;
   @state() private _valveProtectionEnabled = false;
+  @state() private _centralHeatingEnabled = false;
   @state() private _coilDryEnabled = false;
   @state() private _coilDryMinutes = 20;
   @state() private _coilDryMode = "fan_only";
@@ -491,6 +492,7 @@ export class RoomMindPanel extends LitElement {
             .presencePersons=${this._presencePersons}
             .climateControlActive=${this._climateControlActive}
             .valveProtectionEnabled=${this._valveProtectionEnabled}
+            .centralHeatingEnabled=${this._centralHeatingEnabled}
             .coilDryEnabled=${this._coilDryEnabled}
             .coilDryMinutes=${this._coilDryMinutes}
             .coilDryMode=${this._coilDryMode}
@@ -793,6 +795,7 @@ export class RoomMindPanel extends LitElement {
         presence_away_action: "eco" | "off";
         schedule_off_action: "eco" | "off";
         valve_protection_enabled: boolean;
+        central_heating_enabled?: boolean;
         coil_dry_enabled: boolean;
         coil_dry_minutes: number;
         coil_dry_mode: string;
@@ -811,6 +814,7 @@ export class RoomMindPanel extends LitElement {
       this._climateControlActive = result.climate_control_active ?? true;
       this._presenceEnabled = result.presence_enabled ?? false;
       this._valveProtectionEnabled = result.valve_protection_enabled ?? false;
+      this._centralHeatingEnabled = result.central_heating_enabled ?? false;
       this._coilDryEnabled = result.coil_dry_enabled ?? false;
       this._coilDryMinutes = result.coil_dry_minutes ?? 20;
       this._coilDryMode = result.coil_dry_mode ?? "fan_only";

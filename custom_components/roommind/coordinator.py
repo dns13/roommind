@@ -67,6 +67,7 @@ from .control.residual_heat import mean_rebound
 from .control.solar import compute_q_solar_norm
 from .control.thermal_model import RoomModelManager
 from .managers.ac_coil_dry_manager import AcCoilDryManager, CoilDryRoomResult
+from .managers.central_heating_manager import CentralHeatingManager
 from .managers.compressor_group_manager import (
     CompressorGroupConfig,
     CompressorGroupManager,
@@ -211,6 +212,8 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         self._compressor_manager = CompressorGroupManager()
         # AC evaporator drying (anti-odour): bounded fan run after cooling
         self._coil_dry_manager = AcCoilDryManager(hass)
+        # Central heating boiler switched from the rooms' heat demand
+        self.central_heating = CentralHeatingManager(hass)
         # Heat source orchestration state (per room)
         self._heat_source_states: dict[str, str] = {}
         # Track which rooms already have entity platform entities registered
@@ -342,6 +345,9 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         except Exception:  # noqa: BLE001
             _LOGGER.warning("Releasing unconfigured valves failed", exc_info=True)
 
+        # Central heating: the boiler runs while enough rooms demand heat
+        await self.central_heating.async_update(settings, rooms, room_states)
+
         # Record to history store (throttled)
         learning_disabled = set(settings.get("learning_disabled_rooms", []))
         self._history_write_count += 1
@@ -467,7 +473,7 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             self._coil_dry_manager.state_dirty = False
 
         self.rooms = room_states
-        return {"rooms": room_states}
+        return {"rooms": room_states, "central_heating": self.central_heating.state()}
 
     def _read_room_sensors(
         self,
@@ -2281,7 +2287,7 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         registry = er.async_get(self.hass)
 
         # Global entities (not per-room) that should never be cleaned up
-        global_uids = {f"{DOMAIN}_vacation"}
+        global_uids = {f"{DOMAIN}_vacation", f"{DOMAIN}_central_heating"}
 
         to_remove: list[str] = []
         for entity_entry in registry.entities.values():

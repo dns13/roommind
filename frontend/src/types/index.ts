@@ -158,7 +158,19 @@ export interface RoomConfig {
   heat_source_outdoor_threshold?: number;
   heat_source_ac_min_outdoor?: number;
   climate_control_enabled?: boolean;
+  central_heating?: boolean | null;
   live?: RoomLiveData;
+}
+
+export interface CentralHeatingSettings {
+  enabled: boolean;
+  entity_id: string;
+  min_rooms: number;
+  start_delay_s: number;
+  stop_delay_s: number;
+  on_temperature: number | null;
+  off_temperature: number | null;
+  climate_off_mode: "temperature" | "off";
 }
 
 export interface GlobalSettings {
@@ -201,6 +213,7 @@ export interface GlobalSettings {
   mold_prevention_notify_enabled?: boolean;
   mold_prevention_notify_targets?: NotificationTarget[];
   compressor_groups?: CompressorGroup[];
+  central_heating?: CentralHeatingSettings;
   room_order?: string[];
   group_by_floor?: boolean;
   boost_applied_at?: Record<string, number>;

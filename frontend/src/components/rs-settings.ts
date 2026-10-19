@@ -10,6 +10,7 @@ import type {
   GlobalSettings,
   RoomConfig,
   NotificationTarget,
+  CentralHeatingSettings,
   CompressorGroup,
 } from "../types";
 import { localize } from "../utils/localize";
@@ -22,6 +23,7 @@ import "./settings/rs-settings-control";
 import "./settings/rs-settings-presence";
 import "./settings/rs-settings-vacation";
 import "./settings/rs-settings-valve";
+import { DEFAULT_CENTRAL_HEATING } from "./settings/rs-settings-central-heating";
 import "./settings/rs-settings-compressor";
 import "./settings/rs-settings-coil-dry";
 import "./settings/rs-settings-mold";
@@ -67,6 +69,7 @@ export class RsSettings extends LitElement {
   @state() private _moldPreventionIntensity: "light" | "medium" | "strong" = "medium";
   @state() private _moldPreventionNotify = false;
   @state() private _compressorGroups: CompressorGroup[] = [];
+  @state() private _centralHeating: CentralHeatingSettings = DEFAULT_CENTRAL_HEATING;
   @state() private _coilDryEnabled = false;
   @state() private _coilDryMinutes = 20;
   @state() private _coilDryMode: "fan_only" | "dry" = "fan_only";
@@ -132,6 +135,7 @@ export class RsSettings extends LitElement {
       this._moldPreventionIntensity = s.mold_prevention_intensity ?? "medium";
       this._moldPreventionNotify = s.mold_prevention_notify_enabled ?? false;
       this._compressorGroups = s.compressor_groups ?? [];
+      this._centralHeating = { ...DEFAULT_CENTRAL_HEATING, ...(s.central_heating ?? {}) };
       this._coilDryEnabled = s.coil_dry_enabled ?? false;
       this._coilDryMinutes = s.coil_dry_minutes ?? 20;
       this._coilDryMode = s.coil_dry_mode ?? "fan_only";
@@ -240,6 +244,18 @@ export class RsSettings extends LitElement {
           .valveProtectionInterval=${this._valveProtectionInterval}
           @setting-changed=${this._onSettingChanged}
         ></rs-settings-valve>
+      </rs-settings-panel>
+
+      <rs-settings-panel
+        icon="mdi:water-boiler"
+        .heading=${localize("central_heating.title", l)}
+        .intro=${localize("settings.intro.central_heating", l)}
+      >
+        <rs-settings-central-heating
+          .hass=${this.hass}
+          .centralHeating=${this._centralHeating}
+          @setting-changed=${this._onSettingChanged}
+        ></rs-settings-central-heating>
       </rs-settings-panel>
 
       <rs-settings-panel
@@ -404,6 +420,7 @@ export class RsSettings extends LitElement {
         valve_protection_enabled: this._valveProtectionEnabled,
         valve_protection_interval_days: this._valveProtectionInterval,
         compressor_groups: this._compressorGroups.filter((g) => g.members.length > 0),
+        central_heating: this._centralHeating,
         coil_dry_enabled: this._coilDryEnabled,
         coil_dry_minutes: this._coilDryMinutes,
         coil_dry_mode: this._coilDryMode,

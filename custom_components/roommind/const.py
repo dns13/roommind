@@ -179,6 +179,12 @@ RESIDUAL_HEAT_CUTOFF = 0.02  # below this q_residual is treated as zero
 AC_REBOUND_TAU_MINUTES = 10.0
 AC_REBOUND_CUTOFF = 0.01  # below this the rebound charge is treated as zero
 
+# Central heating (settings["central_heating"]): how a climate target is switched off
+CENTRAL_HEATING_OFF_MODE_TEMPERATURE = "temperature"  # off temperature, stays in heat mode
+CENTRAL_HEATING_OFF_MODE_OFF = "off"  # off temperature, then hvac_mode off
+CENTRAL_HEATING_OFF_MODES = [CENTRAL_HEATING_OFF_MODE_TEMPERATURE, CENTRAL_HEATING_OFF_MODE_OFF]
+CENTRAL_HEATING_MAX_DELAY_S = 3600
+
 # Blind/cover control
 COVER_SOLAR_MIN: float = 0.15
 COVER_HYSTERESIS: float = 1.0

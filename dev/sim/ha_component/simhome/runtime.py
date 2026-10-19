@@ -223,7 +223,10 @@ class SimRuntime:
         rooms = {}
         for area_id, live in (getattr(coordinator, "rooms", None) or {}).items():
             rooms[area_id] = {k: v for k, v in live.items() if _jsonable(v)}
-        rec = {"t": round(time.time(), 1), "rooms": rooms}
+        rec: dict[str, Any] = {"t": round(time.time(), 1), "rooms": rooms}
+        central = (getattr(coordinator, "data", None) or {}).get("central_heating")
+        if central:
+            rec["central_heating"] = central
         self._buffers["observer"].append(json.dumps(rec, separators=(",", ":"), default=str))
 
     @callback

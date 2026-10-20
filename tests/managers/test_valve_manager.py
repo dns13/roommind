@@ -453,3 +453,76 @@ class TestPublicAPI:
         assert vm.is_entity_cycling("climate.test") is False
         vm._cycling["climate.test"] = 123.0
         assert vm.is_entity_cycling("climate.test") is True
+
+
+# --- unknown valves, failed starts, valves heating on their own ---
+
+_ROOMS = {
+    "living": {
+        "devices": [
+            {"entity_id": "climate.trv1", "type": "trv", "role": "auto", "heating_system_type": ""},
+            {"entity_id": "climate.trv2", "type": "trv", "role": "auto", "heating_system_type": ""},
+        ],
+    }
+}
+
+
+@pytest.mark.asyncio
+async def test_unknown_valve_starts_tracking_instead_of_cycling(vm):
+    """A valve without a timestamp (new or renamed) counts as moved now, not idle since 1970."""
+    state = MagicMock()
+    state.attributes = {"hvac_modes": ["heat", "off"]}
+    vm.hass.states.get = MagicMock(return_value=state)
+    vm.hass.services.async_call = AsyncMock()
+    await vm.async_check_and_cycle(_ROOMS, {"valve_protection_enabled": True, "valve_protection_interval_days": 7})
+    vm.hass.services.async_call.assert_not_called()
+    assert vm._cycling == {}
+    assert vm._last_actuation["climate.trv1"] > 0
+    assert vm.actuation_dirty
+
+
+@pytest.mark.asyncio
+async def test_failed_start_logs_the_error_and_waits_a_day(vm, caplog, monkeypatch):
+    from custom_components.roommind.managers import valve_manager as vmod
+
+    now = [5000.0]
+    monkeypatch.setattr(vmod.time, "monotonic", lambda: now[0])
+    state = MagicMock()
+    state.attributes = {"hvac_modes": ["heat", "off"]}
+    vm.hass.states.get = MagicMock(return_value=state)
+    vm.hass.services.async_call = AsyncMock(side_effect=ValueError("temperature out of range"))
+    vm._last_actuation = {"climate.trv1": 0.0, "climate.trv2": 0.0}
+    settings = {"valve_protection_enabled": True, "valve_protection_interval_days": 7}
+    with patch.object(vmod, "celsius_to_ha_temp", return_value=30.0):
+        await vm.async_check_and_cycle(_ROOMS, settings)
+        assert "ValueError: temperature out of range" in caplog.text
+        assert "retrying in 24 h" in caplog.text
+        calls = vm.hass.services.async_call.call_count
+        # an hour later: not tried again
+        now[0] += 3600
+        await vm.async_check_and_cycle(_ROOMS, settings)
+        assert vm.hass.services.async_call.call_count == calls
+        # a day later it is, and a successful start clears the wait
+        now[0] += vmod.VALVE_PROTECTION_RETRY_S
+        vm.hass.services.async_call = AsyncMock()
+        await vm.async_check_and_cycle(_ROOMS, settings)
+    assert set(vm._cycling) == {"climate.trv1", "climate.trv2"}
+    assert vm._retry_after == {}
+
+
+@pytest.mark.asyncio
+async def test_removed_valve_forgets_its_wait(vm):
+    vm._last_actuation = {"climate.gone": 0.0}
+    vm._retry_after = {"climate.gone": 1e12}
+    vm.hass.states.get = MagicMock(return_value=None)
+    await vm.async_check_and_cycle({}, {"valve_protection_enabled": True})
+    assert vm._retry_after == {}
+
+
+def test_loading_keeps_timestamps_recorded_before():
+    from custom_components.roommind.managers.valve_manager import ValveManager
+
+    manager = ValveManager(MagicMock())
+    manager.record_heating(["climate.trv1"])
+    manager.load_actuation_data({"climate.trv2": 1000.0})
+    assert set(manager._last_actuation) == {"climate.trv1", "climate.trv2"}

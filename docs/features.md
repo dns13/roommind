@@ -82,7 +82,7 @@ Disable climate control for individual rooms while keeping other rooms active.
 
 ### Valve protection
 
-Periodic cycling of idle TRV valves to prevent seizing and calcification.
+Periodic cycling of idle TRV valves to prevent seizing and calcification. A valve counts as moved while RoomMind heats its room or while the TRV reports heating itself. A TRV RoomMind has not seen before (newly added or renamed) starts its interval when it is first seen. If a cycle cannot be started, the error is logged and the next attempt follows a day later.
 
 ## Around the room
 

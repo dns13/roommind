@@ -22,6 +22,9 @@ from ..utils.temp_utils import celsius_to_ha_temp
 
 _LOGGER = logging.getLogger(__name__)
 
+# A valve whose cycle could not be started is tried again after this long, not every check
+VALVE_PROTECTION_RETRY_S = 86400
+
 
 class ValveManager:
     """Manages valve protection cycling for TRV anti-seize."""
@@ -32,6 +35,8 @@ class ValveManager:
         self._last_actuation: dict[str, float] = {}
         self._actuation_dirty: bool = False
         self._check_count: int = 0
+        # monotonic time before which a valve whose cycle failed to start is not tried again
+        self._retry_after: dict[str, float] = {}
 
     def should_run_cycle_check(self) -> bool:
         """Increment throttle counter and return True if cycle check is due."""
@@ -59,8 +64,8 @@ class ValveManager:
         self._actuation_dirty = value
 
     def load_actuation_data(self, data: dict) -> None:
-        """Load persisted valve actuation timestamps."""
-        self._last_actuation = dict(data)
+        """Load persisted valve actuation timestamps (on top of any recorded before the load)."""
+        self._last_actuation = {**self._last_actuation, **data}
 
     def get_actuation_data(self) -> dict:
         """Return actuation timestamps for persistence."""
@@ -160,7 +165,14 @@ class ValveManager:
         for eid in all_trvs:
             if eid in self._cycling:
                 continue
-            last = self._last_actuation.get(eid, 0)
+            if eid not in self._last_actuation:
+                # Not seen before (newly added or renamed): tracking starts now. Treating
+                # it as idle since 1970 cycled a valve that had been working all along.
+                self._last_actuation[eid] = now
+                self._actuation_dirty = True
+            if time.monotonic() < self._retry_after.get(eid, 0.0):
+                continue
+            last = self._last_actuation[eid]
             if now - last >= threshold:
                 try:
                     eid_state = self.hass.states.get(eid)
@@ -207,18 +219,27 @@ class ValveManager:
                             context=make_roommind_context(),
                         )
                     self._cycling[eid] = now
-                    idle_days = int((now - last) / 86400) if last else 0
+                    self._retry_after.pop(eid, None)
+                    idle_days = int((now - last) / 86400)
                     _LOGGER.info(
                         "Valve protection: cycling '%s' (idle for %d days)",
                         eid,
                         idle_days,
                     )
-                except Exception:  # noqa: BLE001
-                    _LOGGER.warning("Valve protection: failed to start cycle for '%s'", eid)
+                except Exception as err:  # noqa: BLE001
+                    # Tried again after a day, not on every check (it logged hourly)
+                    self._retry_after[eid] = time.monotonic() + VALVE_PROTECTION_RETRY_S
+                    _LOGGER.warning(
+                        "Valve protection: failed to start cycle for '%s' (%s: %s), retrying in 24 h",
+                        eid,
+                        type(err).__name__,
+                        err,
+                    )
 
         # Cleanup stale entries (entities no longer configured)
         stale = [eid for eid in self._last_actuation if eid not in all_trvs]
         for eid in stale:
             del self._last_actuation[eid]
+            self._retry_after.pop(eid, None)
         if stale:
             self._actuation_dirty = True

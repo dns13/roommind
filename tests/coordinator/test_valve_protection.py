@@ -612,3 +612,25 @@ class TestValveProtectionRespectsIdleAction:
             and c[0][2].get("hvac_mode") == "off"
         ]
         assert off_calls == []
+
+
+@pytest.mark.asyncio
+async def test_valve_heating_on_its_own_counts_as_moved(hass, mock_config_entry):
+    """A TRV that reports heating while RoomMind idles the room (its own regulation) moved its valve."""
+    store = _make_store_mock({"living_room_abc12345": SAMPLE_ROOM})
+    store.get_settings.return_value = {
+        "valve_protection_enabled": True,
+        "valve_last_actuation": {"climate.living_room": time.time() - 8 * 86400},
+    }
+    store.async_save_settings = AsyncMock()
+    hass.data = {"roommind": {"store": store}}
+    # Room above its target: RoomMind idles it, the TRV still reports heating
+    hass.states.get = MagicMock(
+        side_effect=make_mock_states_get(
+            temp="25.0", extra={"climate.living_room": ("heat", {"hvac_action": "heating", "hvac_modes": ["heat"]})}
+        )
+    )
+    hass.services.async_call = AsyncMock()
+    coordinator = _create_coordinator(hass, mock_config_entry)
+    await coordinator._async_update_data()
+    assert coordinator._valve_manager._last_actuation["climate.living_room"] > time.time() - 60

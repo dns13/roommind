@@ -635,6 +635,11 @@ class RoomMindCoordinator(DataUpdateCoordinator):
         """Forget the seed marker: the override now holds values the user chose."""
         self._override_seeded_at.pop(area_id, None)
 
+    def _reports_heating(self, entity_id: str) -> bool:
+        """True when the device itself reports that it heats (its valve is open)."""
+        state = self.hass.states.get(entity_id)
+        return state is not None and state.attributes.get("hvac_action") == "heating"
+
     def is_override_seed_pending(self, area_id: str) -> bool:
         """Return True while a fresh seed is still masked (read-only, unlike the masking itself)."""
         seeded_at = self._override_seeded_at.get(area_id)
@@ -1179,10 +1184,15 @@ class RoomMindCoordinator(DataUpdateCoordinator):
             has_override=has_override,
         )
 
-        # Track valve actuation during normal heating (skip excluded entities)
+        # Track valve actuation (skip excluded entities): every TRV of a room RoomMind heats,
+        # and a TRV that reports heating itself (its own regulation moved the valve)
+        excluded = set(room.get("valve_protection_exclude", []))
+        room_trvs = [eid for eid in get_trv_eids(room.get("devices", [])) if eid not in excluded]
         if mode == MODE_HEATING:
-            excluded = set(room.get("valve_protection_exclude", []))
-            heating_eids = [eid for eid in get_trv_eids(room.get("devices", [])) if eid not in excluded]
+            heating_eids = room_trvs
+        else:
+            heating_eids = [eid for eid in room_trvs if self._reports_heating(eid)]
+        if heating_eids:
             self._valve_manager.record_heating(heating_eids)
 
         mpc_active = False

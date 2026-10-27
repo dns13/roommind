@@ -586,11 +586,13 @@ class TestRoomMindCoordinator:
             wraps=coordinator._model_manager.update_window_open,
         ) as mock_win_update:
             await coordinator._async_update_data()
+            await coordinator._async_update_data()
 
-        # k_window should be learned (no residual heat, no delay)
-        mock_win_update.assert_called_once()
-        _, kwargs = mock_win_update.call_args
-        assert kwargs.get("learn_k_window") is True
+        # k_window should be learned (no residual heat, no delay); the first cycle after
+        # start only takes over the temperature, the stored one may be hours old (#478)
+        assert mock_win_update.call_count == 2
+        assert mock_win_update.call_args_list[0].kwargs.get("learn_k_window") is False
+        assert mock_win_update.call_args.kwargs.get("learn_k_window") is True
 
     @pytest.mark.asyncio
     async def test_zero_delays_instant_behavior(self, hass, mock_config_entry):

@@ -333,6 +333,7 @@ async def test_dry_mode_skips_ekf_training(hass, mock_config_entry, frozen_time)
     assert rs["coil_dry_active"] is True
     assert coordinator._ekf_training.process.called is False
     assert coordinator._ekf_training.clear.called is True
+    assert coordinator._ekf_training.clear.call_args.kwargs["resync"] is False
 
 
 @pytest.mark.asyncio

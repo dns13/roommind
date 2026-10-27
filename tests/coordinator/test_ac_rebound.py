@@ -137,3 +137,6 @@ async def test_compressor_hold_with_running_unit_skips_training_and_keeps_chargi
     )
     assert training.called is trained
     assert (coordinator._rebound_tracker._cooling.get(room["area_id"]) is True) is hold
+    if hold:
+        # a hold resumes without a resync, as before #478 (keeps #436's sim calibration)
+        assert coordinator._ekf_training.clear.call_args.kwargs["resync"] is False

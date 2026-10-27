@@ -1447,7 +1447,12 @@ class RoomMindCoordinator(DataUpdateCoordinator):
                 q_rebound=q_rebound,
             )
         else:
-            self._ekf_training.clear(area_id)
+            # A held unit or a coil dry run keeps the old resume (learn the change across the
+            # pause): in the sim it offsets the air relaxing after a heating run, a resync
+            # gave beta_s 3.2 -> 5.0 in compressor-hold-mixed-room.
+            device_pause = hold_running is not None or coil_dry_skip_training
+            observed = learning_active and current_temp_raw is not None and self.outdoor_temp_effective is not None
+            self._ekf_training.clear(area_id, resync=not (device_pause and observed))
         # Same mode the EKF learns from, so the charge matches its labels.
         self._rebound_tracker.update(area_id, hold_running or ekf_mode)
 

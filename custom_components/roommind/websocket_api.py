@@ -115,6 +115,7 @@ _ROOM_SAVE_FIELDS = (
     "occupancy_sensors",
     "occupancy_eco_enabled",
     "occupancy_eco_delay",
+    "preheat_enabled",
     "climate_mode",
     "schedules",
     "schedule_selector_entity",
@@ -410,6 +411,7 @@ async def websocket_list_rooms(
         vol.Optional("occupancy_eco_delay"): vol.All(
             vol.Coerce(int), vol.Range(min=MIN_OCCUPANCY_ECO_DELAY_MINUTES, max=240)
         ),
+        vol.Optional("preheat_enabled"): bool,
         vol.Optional("climate_mode"): vol.In(CLIMATE_MODES),
         vol.Optional("schedules"): [{vol.Required("entity_id"): str}],
         vol.Optional("schedule_selector_entity"): str,

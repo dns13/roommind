@@ -415,7 +415,9 @@ def _simulate_mpc(
                 approach_rate=approach_rate,
                 start_penalty=start_penalty,
                 fast_heater_shares_model=acs_can_heat,
-                preheat_max_blocks=preheat_max_blocks(cw, PLAN_DT_MINUTES),
+                preheat_max_blocks=preheat_max_blocks(
+                    cw, PLAN_DT_MINUTES, enabled=room_config.get("preheat_enabled", True)
+                ),
             )
             plan = optimizer.optimize(
                 T_room=T,

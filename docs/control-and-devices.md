@@ -14,7 +14,8 @@ In `Settings -> Control -> Priority`, the slider balances comfort against runtim
 When a schedule block raises the target (for example eco 17 °C until 06:00, then 21 °C), RoomMind works out from the learned room model how long the room needs to heat up and starts early enough for the room to be warm when the block begins. Rooms whose radiators need hours to recover from a night setback start correspondingly early.
 
 - At the default position and toward `Comfort`, pre-heating may start up to 12 hours ahead.
-- Below the default, the longest pre-heat lead shrinks with the slider; at full `Efficiency` RoomMind only heats shortly before the block, as before v1.7.9. The room then reaches the comfort temperature some time after the block has started, which uses a little less energy.
+- Below the default, the longest pre-heat lead shrinks with the slider; at full `Efficiency` RoomMind only heats shortly before the block, as before v1.7.9. The room then reaches the comfort temperature some time after the block has started, which uses a little less energy. The line under the slider shows the current limit in hours.
+- Each room has its own switch `Pre-heat before schedule blocks` in the schedule section. Turned off, that room only heats shortly before a block, whatever the slider says, for example a bedroom that should not heat up during the night. The same applies to the end of a vacation or an override. The switch is shown for rooms with their own temperature sensor in `Intelligent (MPC)` mode; underfloor heating keeps its own pre-heating unless an orchestrated AC heats the room.
 - Underfloor heating uses its own pre-heating that accounts for the heat stored in the screed.
 - `Simple` control mode does not pre-heat.
 

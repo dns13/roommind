@@ -175,3 +175,47 @@ def test_controller_and_analytics_take_the_limit_from_the_slider():
         has_external_sensor=True,
     )
     assert ctrl._preheat_max_blocks == 0
+
+
+def test_room_switch_turns_the_preheat_lead_off():
+    """Pre-heating off for a room (#478): no lead, whatever the slider says."""
+    from custom_components.roommind.control.mpc_optimizer import preheat_max_blocks
+
+    assert preheat_max_blocks(70, enabled=False) == 0
+    assert preheat_max_blocks(100, enabled=False) == 0
+    assert preheat_max_blocks(70, enabled=True) is None
+
+
+@pytest.mark.parametrize(("room_value", "expected"), [(False, 0), (True, None), ("missing", None)])
+def test_controller_reads_the_room_switch(room_value, expected):
+    room = make_room() if room_value == "missing" else make_room(preheat_enabled=room_value)
+    ctrl = MPCController(
+        build_hass(),
+        room,
+        model_manager=RoomModelManager(),
+        outdoor_temp=0.0,
+        settings={"comfort_weight": 70},
+        has_external_sensor=True,
+    )
+    assert ctrl._preheat_max_blocks == expected
+
+
+def test_analytics_reads_the_room_switch():
+    from unittest.mock import patch
+
+    from custom_components.roommind.control import analytics_simulator
+
+    seen = []
+    real = analytics_simulator.MPCOptimizer
+
+    def spy(*args, **kwargs):
+        seen.append(kwargs.get("preheat_max_blocks"))
+        return real(*args, **kwargs)
+
+    forecast = [{"target_temp": 17.5, "heat_target": 17.5, "cool_target": 30.0}] * 6
+    room = make_room(preheat_enabled=False, climate_mode="heat_only")
+    with patch.object(analytics_simulator, "MPCOptimizer", side_effect=spy):
+        analytics_simulator._simulate_mpc(
+            SLOW, forecast, [0.0] * 6, current_temp=18.0, room_config=room, settings={"comfort_weight": 70}
+        )
+    assert seen and all(v == 0 for v in seen)

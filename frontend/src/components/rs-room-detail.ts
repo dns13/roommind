@@ -47,6 +47,7 @@ export class RsRoomDetail extends LitElement {
   @property({ type: Boolean }) public climateControlActive = true;
 
   @property({ type: Boolean }) public valveProtectionEnabled = false;
+  @property({ type: String }) public controlMode: "mpc" | "bangbang" = "mpc";
   @property({ type: Boolean }) public coilDryEnabled = false;
   @property({ type: Number }) public coilDryMinutes = 20;
   @property({ type: String }) public coilDryMode = "fan_only";
@@ -57,6 +58,7 @@ export class RsRoomDetail extends LitElement {
   @state() private _selectedHumiditySensor = "";
   @state() private _selectedOccupancySensors: Set<string> = new Set();
   @state() private _occupancyEcoEnabled = false;
+  @state() private _preheatEnabled = true;
   @state() private _occupancyEcoDelay = DEFAULT_OCCUPANCY_ECO_DELAY;
   @state() private _selectedWindowSensors: Set<string> = new Set();
   @state() private _windowOpenDelay = 0;
@@ -265,6 +267,7 @@ export class RsRoomDetail extends LitElement {
       this._selectedHumiditySensor = this.config.humidity_sensor ?? "";
       this._selectedOccupancySensors = new Set(this.config.occupancy_sensors ?? []);
       this._occupancyEcoEnabled = this.config.occupancy_eco_enabled ?? false;
+      this._preheatEnabled = this.config.preheat_enabled ?? true;
       this._occupancyEcoDelay = this.config.occupancy_eco_delay ?? DEFAULT_OCCUPANCY_ECO_DELAY;
       this._selectedWindowSensors = new Set(this.config.window_sensors ?? []);
       this._windowOpenDelay = this.config.window_open_delay ?? 0;
@@ -307,6 +310,7 @@ export class RsRoomDetail extends LitElement {
       this._selectedHumiditySensor = "";
       this._selectedOccupancySensors = new Set();
       this._occupancyEcoEnabled = false;
+      this._preheatEnabled = true;
       this._occupancyEcoDelay = DEFAULT_OCCUPANCY_ECO_DELAY;
       this._selectedWindowSensors = new Set();
       this._windowOpenDelay = 0;
@@ -451,6 +455,8 @@ export class RsRoomDetail extends LitElement {
                       .ecoCool=${this._ecoCool}
                       .climateMode=${this._climateMode}
                       .scheduleTempWarnings=${this.config?.live?.schedule_temp_warnings ?? []}
+                      .preheatEnabled=${this._preheatEnabled}
+                      .showPreheat=${this._showPreheat()}
                       .editing=${false}
                       @schedules-changed=${this._onSchedulesChanged}
                       @schedule-selector-changed=${this._onScheduleSelectorChanged}
@@ -714,6 +720,8 @@ export class RsRoomDetail extends LitElement {
             .ecoCool=${this._ecoCool}
             .climateMode=${this._climateMode}
             .scheduleTempWarnings=${this.config?.live?.schedule_temp_warnings ?? []}
+            .preheatEnabled=${this._preheatEnabled}
+            .showPreheat=${this._showPreheat()}
             .editing=${true}
             @schedules-changed=${this._onSchedulesChanged}
             @schedule-selector-changed=${this._onScheduleSelectorChanged}
@@ -721,6 +729,7 @@ export class RsRoomDetail extends LitElement {
             @comfort-cool-changed=${this._onComfortCoolChanged}
             @eco-heat-changed=${this._onEcoHeatChanged}
             @eco-cool-changed=${this._onEcoCoolChanged}
+            @preheat-changed=${this._onPreheatChanged}
           ></rs-schedule-settings>
         </rs-edit-dialog>`;
       case "devices":
@@ -941,6 +950,27 @@ export class RsRoomDetail extends LitElement {
     this._autoSave();
   }
 
+  /**
+   * Only where the pre-heat lead applies: MPC with a room sensor, not cool_only. Underfloor
+   * heating pre-heats through its own control, unless an orchestrated AC heats the room.
+   */
+  private _showPreheat(): boolean {
+    if (
+      this.controlMode !== "mpc" ||
+      !this._selectedTempSensor ||
+      this._climateMode === "cool_only"
+    ) {
+      return false;
+    }
+    const acHeats = this._heatSourceOrchestration && this._devices.some((d) => d.type === "ac");
+    return resolveHeatingSystemType(this._devices) !== "underfloor" || acHeats;
+  }
+
+  private _onPreheatChanged(e: CustomEvent<{ value: boolean }>) {
+    this._preheatEnabled = e.detail.value;
+    this._autoSave();
+  }
+
   private _onEcoCoolChanged(e: CustomEvent<{ value: number }>) {
     this._ecoCool = e.detail.value;
     if (this._ecoHeat > this._ecoCool) this._ecoHeat = this._ecoCool;
@@ -1132,6 +1162,7 @@ export class RsRoomDetail extends LitElement {
         occupancy_sensors: [...this._selectedOccupancySensors],
         occupancy_eco_enabled: this._occupancyEcoEnabled,
         occupancy_eco_delay: this._occupancyEcoDelay,
+        preheat_enabled: this._preheatEnabled,
         window_sensors: [...this._selectedWindowSensors],
         window_open_delay: this._windowOpenDelay,
         window_close_delay: this._windowCloseDelay,

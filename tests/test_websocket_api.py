@@ -3211,3 +3211,21 @@ async def test_list_rooms_forwards_occupancy_vacant(ws_hass, store, connection):
 
     rooms = connection.send_result.call_args[0][1]["rooms"]
     assert rooms["office"]["live"]["occupancy_vacant"] is True
+
+
+@pytest.mark.asyncio
+async def test_save_room_preheat_switch_roundtrip(ws_hass, store, connection):
+    """Per-room pre-heat switch (#478) is validated and stored."""
+    import voluptuous as vol
+
+    schema = websocket_save_room._ws_schema
+    base = {"type": "roommind/rooms/save", "id": 1, "area_id": "bedroom"}
+    assert schema({**base, "preheat_enabled": False})["preheat_enabled"] is False
+    with pytest.raises(vol.Invalid):
+        schema({**base, "preheat_enabled": "maybe"})
+
+    await store.async_load()
+    await _save_room(
+        ws_hass, connection, {"id": 11, "type": "roommind/rooms/save", "area_id": "bedroom", "preheat_enabled": False}
+    )
+    assert store.get_room("bedroom")["preheat_enabled"] is False

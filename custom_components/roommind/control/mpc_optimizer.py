@@ -35,9 +35,12 @@ PREHEAT_MAX_LEAD_HOURS = 12.0
 CLAMP_HEADROOM_K = 5.0
 
 
-def preheat_max_blocks(comfort_weight: float, dt_minutes: float = 5.0) -> int | None:
+def preheat_max_blocks(comfort_weight: float, dt_minutes: float = 5.0, *, enabled: bool = True) -> int | None:
     """Pre-heat lead the comfort/efficiency slider allows: the default and above
-    plan up to the horizon, towards efficiency the lead shrinks to none."""
+    plan up to the horizon, towards efficiency the lead shrinks to none.
+    ``enabled`` is the room's pre-heat switch; off means no lead at all."""
+    if not enabled:
+        return 0
     if comfort_weight >= DEFAULT_COMFORT_WEIGHT:
         return None
     hours = PREHEAT_MAX_LEAD_HOURS * max(0.0, comfort_weight) / DEFAULT_COMFORT_WEIGHT

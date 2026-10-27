@@ -491,6 +491,7 @@ export class RoomMindPanel extends LitElement {
             .presencePersons=${this._presencePersons}
             .climateControlActive=${this._climateControlActive}
             .valveProtectionEnabled=${this._valveProtectionEnabled}
+            .controlMode=${this._controlMode}
             .coilDryEnabled=${this._coilDryEnabled}
             .coilDryMinutes=${this._coilDryMinutes}
             .coilDryMode=${this._coilDryMode}

@@ -15,6 +15,7 @@ import {
 } from "../utils/temperature";
 import { RsScheduleBase } from "./shared/rs-schedule-base";
 import { inputStyles } from "../styles/input-styles";
+import "./shared/rs-toggle-row";
 
 /** Mirrors _WEEKDAYS in the backend's schedule_utils.py. */
 const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
@@ -42,6 +43,8 @@ export class RsScheduleSettings extends RsScheduleBase {
   @property({ type: Number }) public ecoCool = 27.0;
   @property({ type: String }) public climateMode: ClimateMode = "auto";
   @property({ attribute: false }) public scheduleTempWarnings: ScheduleTempWarning[] = [];
+  @property({ type: Boolean }) public preheatEnabled = true;
+  @property({ type: Boolean }) public showPreheat = false;
 
   static styles = [
     RsScheduleBase.sharedStyles,
@@ -69,6 +72,10 @@ export class RsScheduleSettings extends RsScheduleBase {
 
       ha-textfield {
         flex: 1;
+      }
+
+      .preheat-toggle {
+        margin-top: 16px;
       }
 
       .view-temps {
@@ -212,6 +219,11 @@ export class RsScheduleSettings extends RsScheduleBase {
             `
       }
       ${
+        this.showPreheat && !this.preheatEnabled
+          ? html`<div class="view-selector-info">${localize("schedule.view_preheat_off", l)}</div>`
+          : nothing
+      }
+      ${
         this.scheduleSelectorEntity
           ? html`<div class="view-selector-info">
               ${localize("schedule.view_selector_prefix", l)}
@@ -249,7 +261,29 @@ export class RsScheduleSettings extends RsScheduleBase {
         (value) => this._onSelectorEntityChange(value),
       )}
       ${this._renderTemperatureInputs(l)}
+      ${
+        this.showPreheat
+          ? html`<rs-toggle-row
+              class="preheat-toggle"
+              .label=${localize("schedule.preheat_label", l)}
+              .hint=${localize("schedule.preheat_hint", l)}
+              .checked=${this.preheatEnabled}
+              @toggle-changed=${this._onPreheatToggle}
+            ></rs-toggle-row>`
+          : nothing
+      }
     `;
+  }
+
+  private _onPreheatToggle(e: CustomEvent<boolean>) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("preheat-changed", {
+        detail: { value: e.detail },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   // ─── Schedule list ─────────────────────────────────────────────

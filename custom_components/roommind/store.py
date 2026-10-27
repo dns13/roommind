@@ -251,6 +251,7 @@ class RoomMindStore:
             "occupancy_sensors": config.get("occupancy_sensors", []),
             "occupancy_eco_enabled": config.get("occupancy_eco_enabled", False),
             "occupancy_eco_delay": config.get("occupancy_eco_delay", DEFAULT_OCCUPANCY_ECO_DELAY_MINUTES),
+            "preheat_enabled": config.get("preheat_enabled", True),
             "climate_mode": config.get("climate_mode", "auto"),
             "schedules": config.get("schedules", []),
             "schedule_selector_entity": config.get("schedule_selector_entity", ""),

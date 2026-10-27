@@ -1383,7 +1383,9 @@ class MPCController:
         cw = s.get("comfort_weight", 70)
         self._w_comfort = max(1.0, cw / 10.0)
         self._w_energy = max(1.0, (100 - cw) / 10.0)
-        self._preheat_max_blocks = preheat_max_blocks(cw, PLAN_DT_MINUTES)
+        self._preheat_max_blocks = preheat_max_blocks(
+            cw, PLAN_DT_MINUTES, enabled=room_config.get("preheat_enabled", True)
+        )
         self._approach_rate = min(1.0, APPROACH_RATE_MIN + (1.0 - APPROACH_RATE_MIN) * cw / DEFAULT_COMFORT_WEIGHT)
         self._valve_modulating = is_valve_modulating(
             self._devices, check_acs_can_heat(hass, room_config), self.has_external_sensor

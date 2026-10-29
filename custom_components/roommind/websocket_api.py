@@ -45,6 +45,8 @@ from .utils.device_utils import (
     DEFAULT_COIL_DRY_MINUTES,
     SETPOINT_OFFSET_MAX,
     SETPOINT_OFFSET_MIN,
+    VALVE_CLOSING_MODES,
+    ValveEntities,
     get_valve_entities,
 )
 from .utils.schedule_utils import mask_override_band, override_preset_band
@@ -398,6 +400,8 @@ async def websocket_list_rooms(
                     vol.Optional("coil_dry_fan_mode", default=""): str,
                     vol.Optional("valve_opening_entity"): _number_entity_or_empty,
                     vol.Optional("valve_closing_entity"): _number_entity_or_empty,
+                    # No default: devices without it keep their stored form (#482)
+                    vol.Optional("valve_closing_mode"): vol.In(VALVE_CLOSING_MODES),
                 },
                 _validate_device_idle_action,
                 _validate_device_coil_dry,
@@ -508,19 +512,30 @@ async def websocket_save_room(
 async def _async_release_dropped_valves(
     hass: HomeAssistant,
     area_id: str,
-    old: dict[str, tuple[str, str]],
-    new: dict[str, tuple[str, str]],
+    old: dict[str, ValveEntities],
+    new: dict[str, ValveEntities],
 ) -> None:
     """Hand valves RoomMind no longer controls back to their TRVs (#413).
 
     Nobody else would: without the config RoomMind does not know these number
-    entities any more, and the valve would stay pinned where it was last set.
+    entities any more, and the valve would stay pinned where it was last set. A changed
+    closing mode alone is left to the next cycle (#482): a release in the old mode would
+    open a TRV-ZBT fully while it idles.
     """
-    for climate_eid, (opening, closing) in old.items():
-        if new.get(climate_eid) == (opening, closing):
+    for climate_eid, valve in old.items():
+        kept = new.get(climate_eid)
+        if kept is not None and kept[:2] == valve[:2]:
             continue
         try:
-            await async_release_valve(hass, climate_eid, opening, closing, area_id=area_id, hand_back=True)
+            await async_release_valve(
+                hass,
+                climate_eid,
+                valve.opening,
+                valve.closing,
+                area_id=area_id,
+                hand_back=True,
+                idle_opening=valve.idle_opening,
+            )
         except Exception:  # noqa: BLE001
             _LOGGER.warning("Room '%s': releasing the valve of '%s' failed", area_id, climate_eid, exc_info=True)
 

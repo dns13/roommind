@@ -31,10 +31,20 @@ class DeviceSpec:
     quirks: list[dict[str, Any]] = field(default_factory=list)
 
     def valve_numbers(self) -> dict[str, str]:
-        """``{"opening"|"closing": number entity id}`` of a TRV with direct valve control (TRVZB)."""
+        """``{"opening"|"closing": number entity id}`` of a TRV with direct valve control.
+
+        TRVZB: ``*_valve_opening_degree`` / ``*_valve_closing_degree``. With ``valve_idle_position``
+        (TRV-ZBT) the second one is the opening while idle: ``*_heating_valve_position`` /
+        ``*_idle_valve_position``, still keyed opening/closing.
+        """
         if self.model != "trv" or not self.capabilities.get("valve_numbers"):
             return {}
         object_id = self.entity_id.split(".", 1)[1]
+        if self.capabilities.get("valve_idle_position"):
+            return {
+                "opening": f"number.{object_id}_heating_valve_position",
+                "closing": f"number.{object_id}_idle_valve_position",
+            }
         return {kind: f"number.{object_id}_valve_{kind}_degree" for kind in ("opening", "closing")}
 
 

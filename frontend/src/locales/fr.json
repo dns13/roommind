@@ -227,7 +227,12 @@
   "devices.valve_direct_control": "Contrôle direct de la vanne",
   "devices.valve_opening_entity": "Degré d'ouverture de la vanne",
   "devices.valve_closing_entity": "Degré de fermeture de la vanne",
-  "devices.valve_direct_control_hint": "Pour les têtes thermostatiques dont Home Assistant peut régler l'ouverture (p. ex. SONOFF TRVZB : valve_opening_degree et valve_closing_degree, les deux sont nécessaires). RoomMind maintient alors la vanne à l'ouverture dont la pièce a besoin, p. ex. 30 %, au lieu de l'ouvrir complètement : moins de mouvements, plus silencieux et une chaleur plus régulière. Videz les champs ou désactivez le contrôle climatique et RoomMind remet les deux à 100 %.",
+  "devices.valve_idle_opening_entity": "Ouverture de la vanne au repos",
+  "devices.valve_closing_mode": "La seconde valeur est",
+  "devices.valve_closing_mode_closing_degree": "Degré de fermeture (p. ex. SONOFF TRVZB)",
+  "devices.valve_closing_mode_idle_opening": "Ouverture au repos (p. ex. SONOFF TRV-ZBT)",
+  "devices.valve_closing_mode_hint": "Ce que signifie la seconde valeur. La plupart des têtes ont un degré de fermeture (SONOFF TRVZB : valve_closing_degree). La SONOFF TRV-ZBT a à la place l'ouverture de la vanne quand elle ne chauffe pas (Zigbee2MQTT : idle_valve_position) : choisissez alors « Ouverture au repos », sinon la vanne reste ouverte quand la pièce n'a pas besoin de chaleur.",
+  "devices.valve_direct_control_hint": "Pour les têtes thermostatiques dont Home Assistant peut régler l'ouverture (p. ex. SONOFF TRVZB : valve_opening_degree et valve_closing_degree, les deux sont nécessaires). RoomMind maintient alors la vanne à l'ouverture dont la pièce a besoin, p. ex. 30 %, au lieu de l'ouvrir complètement : moins de mouvements, plus silencieux et une chaleur plus régulière. Videz les champs ou désactivez le contrôle climatique et RoomMind rend la vanne à la régulation de la tête.",
   "devices.valve_direct_control_toggle_hint": "Pour les têtes thermostatiques dont Home Assistant peut régler l'ouverture (p. ex. SONOFF TRVZB). RoomMind maintient alors la vanne à l'ouverture dont la pièce a besoin, p. ex. 30 %, au lieu de l'ouvrir complètement : moins de mouvements, plus silencieux et une chaleur plus régulière. Désactivé, ou avec le contrôle climatique désactivé, la tête régule de nouveau la vanne elle-même.",
   "devices.valve_direct_badge": "Vanne directe",
   "devices.info.types_title": "Types d'appareil",
@@ -589,5 +594,5 @@
   "heat_source.ac_min_outdoor_hint": "Désactiver complètement la climatisation en dessous de cette température pour protéger le matériel de la pompe à chaleur.",
   "heat_source.ac_min_outdoor_suffix": "°C",
   "heat_source.summary_disabled": "La sélection intelligente de la source est désactivée",
-  "devices.valve_closing_entity_hint": "Maintient la vanne à l'ouverture réglée, quoi que veuille la régulation de la tête. Rempli automatiquement si l'appareil en a une."
+  "devices.valve_closing_entity_hint": "Maintient la vanne à l'ouverture réglée, quoi que veuille la régulation de la tête. Rempli automatiquement si l'appareil la nomme comme le degré d'ouverture (valve_closing_degree)."
 }

@@ -42,7 +42,10 @@ class SimValveNumber(SimEntity, NumberEntity):
     _attr_mode = NumberMode.SLIDER
 
     def __init__(self, rt: Any, dev: SimDevice, kind: str, entity_id: str) -> None:
-        super().__init__(rt, entity_id, f"{dev.spec.name} valve {kind} degree")
+        name = {"opening": "heating valve position", "closing": "idle valve position"}[kind]
+        if not dev.spec.capabilities.get("valve_idle_position"):
+            name = f"valve {kind} degree"
+        super().__init__(rt, entity_id, f"{dev.spec.name} {name}")
         self.dev = dev
         self.kind = kind
         self._attr_device_info = valve_device_info(dev)

@@ -2243,9 +2243,17 @@ class RoomMindCoordinator(DataUpdateCoordinator):
 
     async def _async_release_valves(self, area_id: str, devices: list[dict], *, hand_back: bool = True) -> None:
         """Hand every valve RoomMind pins in this room back to its TRV (#413)."""
-        for entity_id, (opening, closing) in get_valve_entities(devices).items():
+        for entity_id, valve in get_valve_entities(devices).items():
             try:
-                await async_release_valve(self.hass, entity_id, opening, closing, area_id=area_id, hand_back=hand_back)
+                await async_release_valve(
+                    self.hass,
+                    entity_id,
+                    valve.opening,
+                    valve.closing,
+                    area_id=area_id,
+                    hand_back=hand_back,
+                    idle_opening=valve.idle_opening,
+                )
             except Exception:  # noqa: BLE001
                 _LOGGER.warning("Room '%s': releasing the valve of '%s' failed", area_id, entity_id, exc_info=True)
 

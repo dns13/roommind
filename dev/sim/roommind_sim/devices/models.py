@@ -86,8 +86,16 @@ class Trv(SimDevice):
         self.t_rad: float | None = None
         self.valve = 0.0
         self.valve_opening_deg = 100
-        self.valve_closing_deg = 100
+        self.valve_closing_deg = self._default_closing_deg()
         self._next_report = 0.0
+
+    def _idle_position(self) -> bool:
+        """TRV-ZBT: the second number is the opening while idle, not a closing degree."""
+        return bool(self.spec.capabilities.get("valve_idle_position"))
+
+    def _default_closing_deg(self) -> int:
+        """Untouched TRV: closed while idle (TRVZB closing degree 100, TRV-ZBT idle position 0)."""
+        return 0 if self._idle_position() else 100
 
     def _apply(self, service: str, data: dict[str, Any]) -> CommandResult:
         kind = _VALVE_SERVICES.get(service)
@@ -105,10 +113,10 @@ class Trv(SimDevice):
 
     def _valve_position(self, demand: float) -> float:
         """TRVZB semantics: open position = opening degree, closed position = 100 - closing
-        degree; the P controller's demand moves the valve between both. Crossed degrees
-        (open position below closed position) clamp the demand into their range instead
-        of inverting it."""
-        lo = 1.0 - self.valve_closing_deg / 100.0
+        degree; the P controller's demand moves the valve between both. TRV-ZBT: closed
+        position = idle position. Crossed degrees (open position below closed position)
+        clamp the demand into their range instead of inverting it."""
+        lo = self.valve_closing_deg / 100.0 if self._idle_position() else 1.0 - self.valve_closing_deg / 100.0
         hi = self.valve_opening_deg / 100.0
         if hi >= lo:
             return lo + demand * (hi - lo)
@@ -180,7 +188,7 @@ class Trv(SimDevice):
         self.t_rad = data.get("t_rad")
         self.valve = data.get("valve", 0.0)
         self.valve_opening_deg = data.get("valve_opening_deg", 100)
-        self.valve_closing_deg = data.get("valve_closing_deg", 100)
+        self.valve_closing_deg = data.get("valve_closing_deg", self._default_closing_deg())
 
 
 @dataclass

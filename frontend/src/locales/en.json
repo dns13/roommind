@@ -227,7 +227,12 @@
   "devices.valve_direct_control": "Direct valve control",
   "devices.valve_opening_entity": "Valve opening degree",
   "devices.valve_closing_entity": "Valve closing degree",
-  "devices.valve_direct_control_hint": "For thermostats that let Home Assistant set the valve opening (e.g. SONOFF TRVZB: valve_opening_degree and valve_closing_degree, both needed). RoomMind then holds the valve at the opening the room needs, e.g. 30 %, instead of opening it fully: fewer valve movements, quieter and more even heat. Clear the fields or switch off climate control and RoomMind sets both back to 100 %.",
+  "devices.valve_idle_opening_entity": "Valve opening while idle",
+  "devices.valve_closing_mode": "Second value is",
+  "devices.valve_closing_mode_closing_degree": "Closing degree (e.g. SONOFF TRVZB)",
+  "devices.valve_closing_mode_idle_opening": "Opening while idle (e.g. SONOFF TRV-ZBT)",
+  "devices.valve_closing_mode_hint": "What the second value means. Most thermostats have a closing degree (SONOFF TRVZB: valve_closing_degree). The SONOFF TRV-ZBT has the valve opening while it does not heat instead (Zigbee2MQTT: idle_valve_position): pick \"Opening while idle\" there, or the valve stays open when the room needs no heat.",
+  "devices.valve_direct_control_hint": "For thermostats that let Home Assistant set the valve opening (e.g. SONOFF TRVZB: valve_opening_degree and valve_closing_degree, both needed). RoomMind then holds the valve at the opening the room needs, e.g. 30 %, instead of opening it fully: fewer valve movements, quieter and more even heat. Clear the fields or switch off climate control and RoomMind hands the valve back to the thermostat's own control.",
   "devices.valve_direct_control_toggle_hint": "For thermostats that let Home Assistant set the valve opening (e.g. SONOFF TRVZB). RoomMind then holds the valve at the opening the room needs, e.g. 30 %, instead of opening it fully: fewer valve movements, quieter and more even heat. Switched off, or with climate control off, the valve goes back to the thermostat's own control.",
   "devices.valve_direct_badge": "Direct valve",
   "devices.info.types_title": "Device types",
@@ -589,5 +594,5 @@
   "heat_source.ac_min_outdoor_hint": "Disable AC heating entirely below this temperature to protect the heat pump hardware.",
   "heat_source.ac_min_outdoor_suffix": "°C",
   "heat_source.summary_disabled": "Smart source selection is off",
-  "devices.valve_closing_entity_hint": "Keeps the valve at the set opening whatever the thermostat's own control wants. Filled in automatically when the device has one."
+  "devices.valve_closing_entity_hint": "Keeps the valve at the set opening whatever the thermostat's own control wants. Filled in automatically when the device names it like the opening degree (valve_closing_degree)."
 }

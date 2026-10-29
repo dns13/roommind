@@ -227,7 +227,12 @@
   "devices.valve_direct_control": "Direkte Ventilsteuerung",
   "devices.valve_opening_entity": "Ventil-Öffnungsgrad",
   "devices.valve_closing_entity": "Ventil-Schließgrad",
-  "devices.valve_direct_control_hint": "Für Thermostate, bei denen Home Assistant die Ventilöffnung setzen kann (z. B. SONOFF TRVZB: valve_opening_degree und valve_closing_degree, beide nötig). RoomMind hält das Ventil dann auf der Öffnung, die der Raum braucht, z. B. 30 %, statt es ganz aufzumachen: weniger Ventilbewegungen, leiser und gleichmäßiger. Felder leeren oder Klimasteuerung ausschalten setzt beide wieder auf 100 %.",
+  "devices.valve_idle_opening_entity": "Ventilöffnung im Leerlauf",
+  "devices.valve_closing_mode": "Zweiter Wert ist",
+  "devices.valve_closing_mode_closing_degree": "Schließgrad (z. B. SONOFF TRVZB)",
+  "devices.valve_closing_mode_idle_opening": "Öffnung im Leerlauf (z. B. SONOFF TRV-ZBT)",
+  "devices.valve_closing_mode_hint": "Was der zweite Wert bedeutet. Die meisten Thermostate haben einen Schließgrad (SONOFF TRVZB: valve_closing_degree). Der SONOFF TRV-ZBT hat stattdessen die Ventilöffnung, solange er nicht heizt (Zigbee2MQTT: idle_valve_position): dort „Öffnung im Leerlauf“ wählen, sonst bleibt das Ventil offen, wenn der Raum keine Wärme braucht.",
+  "devices.valve_direct_control_hint": "Für Thermostate, bei denen Home Assistant die Ventilöffnung setzen kann (z. B. SONOFF TRVZB: valve_opening_degree und valve_closing_degree, beide nötig). RoomMind hält das Ventil dann auf der Öffnung, die der Raum braucht, z. B. 30 %, statt es ganz aufzumachen: weniger Ventilbewegungen, leiser und gleichmäßiger. Felder leeren oder Klimasteuerung ausschalten gibt das Ventil an die Regelung des Thermostats zurück.",
   "devices.valve_direct_control_toggle_hint": "Für Thermostate, bei denen Home Assistant die Ventilöffnung setzen kann (z. B. SONOFF TRVZB). RoomMind hält das Ventil dann auf der Öffnung, die der Raum braucht, z. B. 30 %, statt es ganz aufzumachen: weniger Ventilbewegungen, leiser und gleichmäßiger. Ausgeschaltet oder bei abgeschalteter Klimasteuerung regelt das Thermostat das Ventil wieder selbst.",
   "devices.valve_direct_badge": "Direktes Ventil",
   "devices.info.types_title": "Gerätetypen",
@@ -589,5 +594,5 @@
   "heat_source.ac_min_outdoor_hint": "AC-Heizen unter dieser Temperatur komplett deaktivieren, um die Wärmepumpen-Hardware zu schützen.",
   "heat_source.ac_min_outdoor_suffix": "°C",
   "heat_source.summary_disabled": "Intelligente Quellenwahl ist aus",
-  "devices.valve_closing_entity_hint": "Hält das Ventil auf der gesetzten Öffnung, egal was die Regelung des Thermostats will. Wird automatisch eingetragen, wenn das Gerät eine hat."
+  "devices.valve_closing_entity_hint": "Hält das Ventil auf der gesetzten Öffnung, egal was die Regelung des Thermostats will. Wird automatisch eingetragen, wenn das Gerät sie wie den Öffnungsgrad benennt (valve_closing_degree)."
 }

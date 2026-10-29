@@ -200,3 +200,34 @@ def test_handing_the_valve_back_is_allowed_when_climate_is_off():
     cmd = {"entity_id": OPEN, "service": "set_value", "data": {"value": 100}, "result": "accepted"}
     run_data = _metrics_run([cmd], [0.0, 0.0], rooms={"r": {"climate_control_enabled": False}})
     assert no_commands_when_climate_off(run_data) == []
+
+
+def test_trv_zbt_names_its_numbers_like_zigbee2mqtt_and_starts_closed_while_idle():
+    w, d = _one("sonoff_trv_zbt")
+    assert d.spec.valve_numbers() == {
+        "opening": "number.d_heating_valve_position",
+        "closing": "number.d_idle_valve_position",
+    }
+    assert (d.valve_opening_deg, d.valve_closing_deg) == (100, 0)
+    assert d.call("set_hvac_mode", {"hvac_mode": "off"}, w.now).ok
+    run(w, 600)
+    assert d.valve == pytest.approx(0.0)
+
+
+def test_trv_zbt_idle_position_100_keeps_the_valve_open_in_off():
+    """#482: the TRVZB's hand-back (both 100) opens a TRV-ZBT fully while it idles."""
+    w, d = _one("sonoff_trv_zbt")
+    assert w.valve_call("number.d_idle_valve_position", 100, w.now).ok
+    assert d.call("set_hvac_mode", {"hvac_mode": "off"}, w.now).ok
+    run(w, 600)
+    assert d.valve == pytest.approx(1.0)
+
+
+def test_trv_zbt_both_positions_at_x_pin_the_valve():
+    w, d = _one("sonoff_trv_zbt")
+    w.valve_call("number.d_heating_valve_position", 30, w.now)
+    w.valve_call("number.d_idle_valve_position", 30, w.now)
+    for target in (30.0, 5.0):
+        _heat(d, w, target)
+        run(w, 600)
+        assert d.valve == pytest.approx(0.3)

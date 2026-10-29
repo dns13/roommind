@@ -323,3 +323,53 @@ async def test_mixed_hold_shows_the_ac_boost_not_the_valve_minimum(hass, mock_co
     assert direct_valve.held_opening("climate.living_room") == MIN_POWER_FRACTION
     assert rs["compressor_protection_reason"] == "min_run"
     assert rs["heating_power"] == 80
+
+
+@pytest.mark.asyncio
+async def test_a_held_valve_stays_held_over_cycles(hass, mock_config_entry):
+    """The closing mode in the valve config must not make every cycle see an orphan (#482)."""
+    from custom_components.roommind.const import MODE_HEATING
+    from custom_components.roommind.control import direct_valve
+    from custom_components.roommind.control.mpc_controller import MPCController
+
+    _setup(hass, VALVE_ROOM, {})
+    coordinator = _create_coordinator(hass, mock_config_entry)
+
+    with patch.object(MPCController, "async_evaluate", AsyncMock(return_value=(MODE_HEATING, 0.4))):
+        for _ in range(3):
+            await coordinator._async_update_data()
+
+    assert direct_valve.held_opening("climate.living_room") == 0.4
+    assert (OPEN, 100.0) not in _number_calls(hass)
+
+
+@pytest.mark.asyncio
+async def test_disabled_climate_control_releases_an_idle_opening_valve_closed(hass, mock_config_entry):
+    room = {**VALVE_ROOM, "devices": [{**VALVE_ROOM["devices"][0], "valve_closing_mode": "idle_opening"}]}
+    _setup(hass, room, {"climate_control_active": False})
+    coordinator = _create_coordinator(hass, mock_config_entry)
+
+    await coordinator._async_update_data()
+
+    assert _number_calls(hass) == [(OPEN, 100.0), (CLOSE, 0.0)]
+
+
+@pytest.mark.asyncio
+async def test_a_mode_change_while_heating_reaches_the_valve_next_cycle(hass, mock_config_entry):
+    from custom_components.roommind.const import MODE_HEATING
+    from custom_components.roommind.control import direct_valve
+    from custom_components.roommind.control.mpc_controller import MPCController
+
+    _setup(hass, VALVE_ROOM, {})
+    coordinator = _create_coordinator(hass, mock_config_entry)
+    store = hass.data["roommind"]["store"]
+    with patch.object(MPCController, "async_evaluate", AsyncMock(return_value=(MODE_HEATING, 0.4))):
+        await coordinator._async_update_data()
+        assert direct_valve.held_opening("climate.living_room") == 0.4  # degrees already at 40/60
+
+        idle_room = {**VALVE_ROOM, "devices": [{**VALVE_ROOM["devices"][0], "valve_closing_mode": "idle_opening"}]}
+        store.get_rooms.return_value = {VALVE_ROOM["area_id"]: idle_room}
+        hass.services.async_call.reset_mock()
+        await coordinator._async_update_data()
+
+    assert _number_calls(hass) == [(CLOSE, 40.0)]

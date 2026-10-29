@@ -71,6 +71,7 @@ def _build_device_states(hass: HomeAssistant, devices: list[dict]) -> list[dict[
             "coil_dry_fan_mode": dev.get("coil_dry_fan_mode", ""),
             "valve_opening_entity": dev.get("valve_opening_entity", ""),
             "valve_closing_entity": dev.get("valve_closing_entity", ""),
+            "valve_closing_mode": dev.get("valve_closing_mode", "closing_degree"),
         }
         if state:
             attrs = state.attributes

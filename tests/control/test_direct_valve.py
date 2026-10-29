@@ -12,6 +12,7 @@ from custom_components.roommind.control.direct_valve import async_release_valve,
 from custom_components.roommind.control.mpc_controller import MODE_COOLING, MODE_HEATING, MODE_IDLE, MPCController
 from custom_components.roommind.control.thermal_model import RoomModelManager
 from custom_components.roommind.managers.heat_source_orchestrator import DeviceCommand, HeatSourcePlan
+from custom_components.roommind.utils.device_utils import ValveEntities
 
 from .conftest import build_hass, make_room
 
@@ -214,7 +215,7 @@ async def test_orphaned_valves_are_released():
     direct_valve._valve_sent[TRV] = direct_valve._Held(0.0, 30, 21.0, OPEN, CLOSE)
     direct_valve._valve_sent["climate.b"] = direct_valve._Held(0.0, 30, 21.0, "number.b", "number.bc")
 
-    await direct_valve.async_release_orphaned_valves(hass, {"climate.b": ("number.b", "number.bc")})
+    await direct_valve.async_release_orphaned_valves(hass, {"climate.b": ValveEntities("number.b", "number.bc")})
 
     assert _number_calls(hass) == [(OPEN, 100.0), (CLOSE, 100.0)]
     assert direct_valve.held_opening(TRV) is None
@@ -226,6 +227,105 @@ async def test_release_of_a_released_valve_sends_nothing():
     hass = _hass({OPEN: _number(100), CLOSE: _number(100)})
 
     await async_release_valve(hass, TRV, OPEN, CLOSE, area_id="a")
+
+    assert _number_calls(hass) == []
+
+
+@pytest.mark.asyncio
+async def test_idle_opening_holds_both_positions_at_the_opening():
+    """SONOFF TRV-ZBT: the second entity is the opening while the TRV does not heat (#482)."""
+    hass = _hass({OPEN: _number(), CLOSE: _number(0)})
+
+    await async_set_valve(hass, TRV, OPEN, CLOSE, 30.4, area_id="a", idle_opening=True)
+
+    assert _number_calls(hass) == [(OPEN, 30.0), (CLOSE, 30.0)]
+
+
+@pytest.mark.asyncio
+async def test_idle_opening_release_closes_the_valve_while_idle():
+    """Handed back as a normal TRV: open while it heats, closed while it does not (#482)."""
+    hass = _hass({OPEN: _number(30), CLOSE: _number(30)})
+    direct_valve._valve_sent[TRV] = direct_valve._Held(0.0, 30, None, OPEN, CLOSE, True)
+
+    await async_release_valve(hass, TRV, OPEN, CLOSE, area_id="a", idle_opening=True)
+
+    assert _number_calls(hass) == [(OPEN, 100.0), (CLOSE, 0.0)]
+    assert TRV not in direct_valve._valve_sent
+
+
+@pytest.mark.asyncio
+async def test_a_changed_closing_mode_goes_out_within_the_dwell():
+    states = {OPEN: _number(), CLOSE: _number()}
+    hass = _hass(states)
+    with patch.object(direct_valve, "_now", return_value=1000.0):
+        await async_set_valve(hass, TRV, OPEN, CLOSE, 30, area_id="a", target=21.0)
+    states[OPEN], states[CLOSE] = _number(30), _number(70)
+    hass.services.async_call.reset_mock()
+
+    with patch.object(direct_valve, "_now", return_value=1060.0):
+        await async_set_valve(hass, TRV, OPEN, CLOSE, 30, area_id="a", target=21.0, idle_opening=True)
+
+    assert _number_calls(hass) == [(CLOSE, 30.0)]
+
+
+@pytest.mark.asyncio
+async def test_a_valve_checked_in_one_closing_mode_is_checked_again_in_the_other():
+    """A gen2 user switching to idle opening after the start check must get the idle position closed."""
+    states = {OPEN: _number(100), CLOSE: _number(100)}
+    hass = _hass(states)
+    await async_release_valve(hass, TRV, OPEN, CLOSE, area_id="a")
+    assert _number_calls(hass) == []
+
+    await async_release_valve(hass, TRV, OPEN, CLOSE, area_id="a", idle_opening=True)
+    assert _number_calls(hass) == [(CLOSE, 0.0)]
+
+    states[CLOSE] = _number(0)
+    hass.services.async_call.reset_mock()
+    await async_release_valve(hass, TRV, OPEN, CLOSE, area_id="a", idle_opening=True)
+    assert _number_calls(hass) == []
+
+
+@pytest.mark.asyncio
+async def test_a_changed_closing_mode_is_no_orphan():
+    """Same entities, other mode: the next cycle rewrites the valve, no hand-back in between."""
+    hass = _hass({OPEN: _number(30), CLOSE: _number(70)})
+    direct_valve._valve_sent[TRV] = direct_valve._Held(0.0, 30, 21.0, OPEN, CLOSE)
+
+    await direct_valve.async_release_orphaned_valves(hass, {TRV: ValveEntities(OPEN, CLOSE, True)})
+
+    assert hass.services.async_call.call_count == 0
+    assert direct_valve.held_opening(TRV) == 0.3
+
+
+@pytest.mark.asyncio
+async def test_unload_releases_each_valve_in_its_closing_mode():
+    hass = _hass({OPEN: _number(30), CLOSE: _number(30), "number.b": _number(30), "number.bc": _number(70)})
+    direct_valve._valve_sent["climate.b"] = direct_valve._Held(0.0, 30, None, "number.b", "number.bc")
+
+    await direct_valve.async_release_all_valves(hass, {TRV: ValveEntities(OPEN, CLOSE, True)})
+
+    assert sorted(_number_calls(hass)) == sorted(
+        [(OPEN, 100.0), (CLOSE, 0.0), ("number.b", 100.0), ("number.bc", 100.0)]
+    )
+
+
+@pytest.mark.asyncio
+async def test_an_orphan_is_released_in_its_own_closing_mode():
+    hass = _hass({OPEN: _number(30), CLOSE: _number(30)})
+    direct_valve._valve_sent[TRV] = direct_valve._Held(0.0, 30, 21.0, OPEN, CLOSE, True)
+
+    await direct_valve.async_release_orphaned_valves(hass, {})
+
+    assert _number_calls(hass) == [(OPEN, 100.0), (CLOSE, 0.0)]
+
+
+@pytest.mark.asyncio
+async def test_other_entities_of_a_checked_valve_are_left_alone_as_before():
+    """Swapped entities in the same mode keep the once-per-start check of v1.8.0."""
+    hass = _hass({OPEN: _number(100), CLOSE: _number(100), "number.other": _number(80)})
+    await async_release_valve(hass, TRV, OPEN, CLOSE, area_id="a")
+
+    await async_release_valve(hass, TRV, OPEN, "number.other", area_id="a")
 
     assert _number_calls(hass) == []
 
@@ -251,6 +351,29 @@ async def test_heating_drives_the_valve_instead_of_a_boosted_setpoint():
     [setpoint] = [c["temperature"] for c in _climate_calls(hass, "set_temperature")]
     assert 21.0 <= setpoint < 29.5
     assert [c["hvac_mode"] for c in _climate_calls(hass, "set_hvac_mode")] == ["heat"]
+
+
+@pytest.mark.asyncio
+async def test_idle_opening_trv_holds_both_positions_and_releases_closed():
+    room = _valve_room()
+    room["devices"][0]["valve_closing_mode"] = "idle_opening"
+    states = {TRV: _trv("off"), OPEN: _number(), CLOSE: _number(0)}
+    hass = _hass(states)
+    ctrl = _controller(hass, room)
+
+    await ctrl.async_apply(
+        MODE_HEATING,
+        TargetTemps(heat=21.0, cool=24.0),
+        power_fraction=0.35,
+        current_temp=20.6,
+        heating_boost_target=30.0,
+    )
+    assert _number_calls(hass) == [(OPEN, 35.0), (CLOSE, 35.0)]
+
+    states[OPEN], states[CLOSE] = _number(35), _number(35)
+    hass.services.async_call.reset_mock()
+    await ctrl.async_apply(MODE_IDLE, TargetTemps(heat=21.0, cool=24.0), power_fraction=0.0, current_temp=21.3)
+    assert _number_calls(hass) == [(OPEN, 100.0), (CLOSE, 0.0)]
 
 
 @pytest.mark.asyncio
@@ -452,6 +575,24 @@ async def test_compressor_hold_runs_the_valve_at_the_minimum():
 
 
 @pytest.mark.asyncio
+async def test_compressor_hold_of_an_idle_opening_trv_pins_both_at_the_minimum():
+    room = _valve_room()
+    room["devices"][0]["valve_closing_mode"] = "idle_opening"
+    hass = _hass({TRV: _trv(), OPEN: _number(60), CLOSE: _number(60)})
+    ctrl = _controller(hass, room)
+
+    await ctrl.async_apply(
+        MODE_IDLE,
+        TargetTemps(heat=21.0, cool=24.0),
+        power_fraction=0.0,
+        current_temp=21.3,
+        compressor_forced_on={TRV},
+    )
+
+    assert _number_calls(hass) == [(OPEN, 15.0), (CLOSE, 15.0)]
+
+
+@pytest.mark.asyncio
 async def test_orchestrated_parked_trv_in_a_hold_runs_at_the_minimum():
     hass = _hass({TRV: _trv(), OPEN: _number(60), CLOSE: _number(40)})
     ctrl = _controller(hass, _valve_room())
@@ -550,7 +691,7 @@ async def test_after_unload_nothing_is_pinned_until_the_next_setup(caplog):
     hass.config.units.temperature_unit = "°C"
     direct_valve._valve_sent["climate.orphan"] = direct_valve._Held(0.0, 30, 21.0, "number.o", "number.c")
 
-    await direct_valve.async_release_all_valves(hass, {TRV: (OPEN, CLOSE)})
+    await direct_valve.async_release_all_valves(hass, {TRV: ValveEntities(OPEN, CLOSE)})
     assert ("number.o", 100.0) in _number_calls(hass) and (OPEN, 100.0) in _number_calls(hass)
 
     hass.services.async_call.reset_mock()
@@ -562,7 +703,7 @@ async def test_after_unload_nothing_is_pinned_until_the_next_setup(caplog):
     assert (OPEN, 40.0) in _number_calls(hass)
 
     with patch.object(direct_valve, "async_release_valve", side_effect=RuntimeError("boom")):
-        await direct_valve.async_release_all_valves(hass, {TRV: (OPEN, CLOSE)})
+        await direct_valve.async_release_all_valves(hass, {TRV: ValveEntities(OPEN, CLOSE)})
     assert "on unload failed" in caplog.text
 
 

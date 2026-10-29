@@ -52,6 +52,7 @@ from ..utils.device_utils import (
     IDLE_ACTION_LOW,
     IDLE_ACTION_OFF,
     IDLE_ACTION_SETBACK,
+    ValveEntities,
     get_ac_eids,
     get_all_entity_ids,
     get_direct_setpoint_eids,
@@ -1335,7 +1336,7 @@ class MPCController:
         self._devices: list[dict] = room_config.get("devices", [])
         self._direct_eids: set[str] = get_direct_setpoint_eids(self._devices)
         self._direct_offsets: dict[str, float] = get_setpoint_offsets(self._devices)
-        self._valve_entities: dict[str, tuple[str, str]] = get_valve_entities(self._devices)
+        self._valve_entities: dict[str, ValveEntities] = get_valve_entities(self._devices)
         self.climate_mode: str = room_config.get("climate_mode", "auto")
         self.outdoor_temp = outdoor_temp
         self.outdoor_forecast = outdoor_forecast or []
@@ -2500,7 +2501,16 @@ class MPCController:
         """
         valve = self._valve_eids.get(eid)
         if valve is not None:
-            await async_set_valve(self.hass, eid, *valve, power_fraction * 100, area_id=self._area_id, target=target)
+            await async_set_valve(
+                self.hass,
+                eid,
+                valve.opening,
+                valve.closing,
+                power_fraction * 100,
+                area_id=self._area_id,
+                target=target,
+                idle_opening=valve.idle_opening,
+            )
 
     async def _async_hold_valve(self, eid: str, targets: TargetTemps) -> bool:
         """Compressor min-run hold of a TRV with direct valve control: the minimum opening.
@@ -2512,7 +2522,15 @@ class MPCController:
         if valve is None:
             return False
         await async_set_valve(
-            self.hass, eid, *valve, MIN_POWER_FRACTION * 100, area_id=self._area_id, target=targets.heat, urgent=True
+            self.hass,
+            eid,
+            valve.opening,
+            valve.closing,
+            MIN_POWER_FRACTION * 100,
+            area_id=self._area_id,
+            target=targets.heat,
+            urgent=True,
+            idle_opening=valve.idle_opening,
         )
         return True
 
@@ -2520,7 +2538,9 @@ class MPCController:
         """Give a TRV with direct valve control its own regulation back (also in Managed Mode)."""
         valve = self._valve_entities.get(eid)
         if valve is not None:
-            await async_release_valve(self.hass, eid, *valve, area_id=self._area_id)
+            await async_release_valve(
+                self.hass, eid, valve.opening, valve.closing, area_id=self._area_id, idle_opening=valve.idle_opening
+            )
 
     async def _call_and_record(
         self, eid: str, record: tuple[float | None, float | None], *args: Any, **kwargs: Any

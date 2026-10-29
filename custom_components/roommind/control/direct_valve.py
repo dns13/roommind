@@ -4,6 +4,9 @@ TRVs like the SONOFF TRVZB expose an opening degree (how far the valve opens whe
 wants heat) and a closing degree (how far it closes when it does not). Opening X with
 closing 100 - X pins the valve at X % whatever the TRV's own controller decides. Both at
 their maximum is the device default, a normal TRV.
+
+The SONOFF TRV-ZBT names the second value the opening while idle (#482): X and X pin the
+valve, 100 and 0 hand it back as a normal TRV.
 """
 
 from __future__ import annotations
@@ -16,6 +19,7 @@ from typing import NamedTuple
 from homeassistant.core import HomeAssistant
 
 from ..const import VALVE_DEADBAND_PCT, VALVE_DWELL_SECONDS, make_roommind_context
+from ..utils.device_utils import ValveEntities
 from ..utils.temp_utils import celsius_to_ha_temp
 
 _LOGGER = logging.getLogger(__name__)
@@ -27,12 +31,17 @@ class _Held(NamedTuple):
     target: float | None
     opening_eid: str
     closing_eid: str
+    idle_opening: bool = False
+
+    @property
+    def valve(self) -> ValveEntities:
+        return ValveEntities(self.opening_eid, self.closing_eid, self.idle_opening)
 
 
 # climate entity -> last position that reached the device
 _valve_sent: dict[str, _Held] = {}
-# climate entities whose degrees were checked since the start without RoomMind holding them
-_checked: set[str] = set()
+# climate entity -> closing mode its degrees were checked in since the start without RoomMind holding them
+_checked: dict[str, bool] = {}
 # set on unload: a cycle still running must not pin a valve again
 _stopped = False
 
@@ -127,6 +136,7 @@ async def async_set_valve(
     area_id: str,
     target: float | None = None,
     urgent: bool = False,
+    idle_opening: bool = False,
 ) -> None:
     """Hold the valve at ``opening_pct`` (0-100).
 
@@ -134,13 +144,13 @@ async def async_set_valve(
     target (``target``) moved or the caller marks the change ``urgent``, and changes below
     ``VALVE_DEADBAND_PCT`` never go out. Every move costs motor noise and battery, while
     the radiator takes minutes to follow anyway; a 0.2 K sensor step alone moves the
-    demand by 20 %.
+    demand by 20 %. ``idle_opening``: the second entity is the opening while idle (#482).
     """
     if _stopped:
         return
     pct = int(round(min(100.0, max(0.0, opening_pct))))
     held = _valve_sent.get(climate_eid)
-    if held is not None and (held.opening_eid, held.closing_eid) == (opening_eid, closing_eid):
+    if held is not None and held.valve == (opening_eid, closing_eid, idle_opening):
         target_moved = target is not None and (held.target is None or abs(target - held.target) > 0.05)
         if abs(pct - held.pct) < VALVE_DEADBAND_PCT or (
             not urgent and not target_moved and _now() - held.at < VALVE_DWELL_SECONDS
@@ -150,16 +160,16 @@ async def async_set_valve(
                 _valve_sent[climate_eid] = held._replace(target=target)
             return
     # Whatever reaches the device from here on has to be released again
-    _checked.discard(climate_eid)
+    _checked.pop(climate_eid, None)
     results = [
         await _async_set_number(hass, opening_eid, pct, area_id),
-        await _async_set_number(hass, closing_eid, 100 - pct, area_id),
+        await _async_set_number(hass, closing_eid, pct if idle_opening else 100 - pct, area_id),
     ]
     if None in results:
         # Try again next cycle; a half-applied position is not remembered as held
         _valve_sent.pop(climate_eid, None)
         return
-    _valve_sent[climate_eid] = _Held(_now(), pct, target, opening_eid, closing_eid)
+    _valve_sent[climate_eid] = _Held(_now(), pct, target, opening_eid, closing_eid, idle_opening)
 
 
 async def async_release_valve(
@@ -170,8 +180,11 @@ async def async_release_valve(
     *,
     area_id: str,
     hand_back: bool = False,
+    idle_opening: bool = False,
 ) -> None:
     """Hand the valve back to the TRV: both degrees to their maximum, the device default.
+
+    With ``idle_opening`` (#482) the second entity goes to 0 instead: closed while idle.
 
     A valve RoomMind holds is always sent (its state may still show the old degrees or
     lag behind the last send) and stays on record until the entities answered. One it
@@ -182,14 +195,18 @@ async def async_release_valve(
     heat the room flat out once the valve is free.
     """
     held = _valve_sent.get(climate_eid)
-    if held is None and climate_eid in _checked:
+    # Checked in the other closing mode does not count: its hand-back would open a TRV-ZBT while idle
+    if held is None and _checked.get(climate_eid) == idle_opening:
         return
     force = held is not None
-    results = [await _async_set_number(hass, eid, 100, area_id, force=force) for eid in (opening_eid, closing_eid)]
+    results = [
+        await _async_set_number(hass, opening_eid, 100, area_id, force=force),
+        await _async_set_number(hass, closing_eid, 0 if idle_opening else 100, area_id, force=force),
+    ]
     if None in results:
         return
     _valve_sent.pop(climate_eid, None)
-    _checked.add(climate_eid)
+    _checked[climate_eid] = idle_opening
     if hand_back and held is not None and held.target is not None:
         try:
             await hass.services.async_call(
@@ -203,26 +220,42 @@ async def async_release_valve(
             _LOGGER.warning("Area '%s': handing the setpoint back to '%s' failed", area_id, climate_eid, exc_info=True)
 
 
-async def async_release_orphaned_valves(hass: HomeAssistant, configured: dict[str, tuple[str, str]]) -> None:
+async def async_release_orphaned_valves(hass: HomeAssistant, configured: dict[str, ValveEntities]) -> None:
     """Release valves RoomMind still holds but no longer has in its config.
 
     A cycle that started before a save or delete can pin a valve again after the save
-    released it; from then on no config names its number entities.
+    released it; from then on no config names its number entities. A changed closing
+    mode alone is no orphan: the next cycle writes the valve in the new mode.
     """
     for climate_eid, held in list(_valve_sent.items()):
-        if configured.get(climate_eid) != (held.opening_eid, held.closing_eid):
+        valve = configured.get(climate_eid)
+        if valve is None or valve[:2] != (held.opening_eid, held.closing_eid):
             await async_release_valve(
-                hass, climate_eid, held.opening_eid, held.closing_eid, area_id="unconfigured", hand_back=True
+                hass,
+                climate_eid,
+                held.opening_eid,
+                held.closing_eid,
+                area_id="unconfigured",
+                hand_back=True,
+                idle_opening=held.idle_opening,
             )
 
 
-async def async_release_all_valves(hass: HomeAssistant, configured: dict[str, tuple[str, str]]) -> None:
+async def async_release_all_valves(hass: HomeAssistant, configured: dict[str, ValveEntities]) -> None:
     """Unload: stop pinning and hand every configured or still held valve back."""
     global _stopped  # noqa: PLW0603
     _stopped = True
-    valves = {eid: (held.opening_eid, held.closing_eid) for eid, held in _valve_sent.items()} | configured
-    for climate_eid, (opening, closing) in valves.items():
+    valves = {eid: held.valve for eid, held in _valve_sent.items()} | configured
+    for climate_eid, valve in valves.items():
         try:
-            await async_release_valve(hass, climate_eid, opening, closing, area_id="unload", hand_back=True)
+            await async_release_valve(
+                hass,
+                climate_eid,
+                valve.opening,
+                valve.closing,
+                area_id="unload",
+                hand_back=True,
+                idle_opening=valve.idle_opening,
+            )
         except Exception:  # noqa: BLE001
             _LOGGER.warning("Releasing the valve of '%s' on unload failed", climate_eid, exc_info=True)

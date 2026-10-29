@@ -134,3 +134,55 @@ async def test_release_failure_does_not_break_the_save(ws_hass, store, connectio
 
     assert connection.send_result.call_count == 2
     assert "releasing the valve" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_the_closing_mode_is_stored_only_when_set(ws_hass, store, connection):
+    """No default in the schema: devices of everyone else stay as they are (and loadable by v1.8.0)."""
+    await store.async_load()
+    await _save(ws_hass, connection, [_device(valve_opening_entity=OPEN, valve_closing_entity=CLOSE)])
+    [device] = store.get_room("living")["devices"]
+    assert "valve_closing_mode" not in device
+
+    await _save(
+        ws_hass,
+        connection,
+        [_device(valve_opening_entity=OPEN, valve_closing_entity=CLOSE, valve_closing_mode="idle_opening")],
+        msg_id=2,
+    )
+    [device] = store.get_room("living")["devices"]
+    assert device["valve_closing_mode"] == "idle_opening"
+
+
+@pytest.mark.asyncio
+async def test_a_changed_closing_mode_is_left_to_the_next_cycle(ws_hass, store, connection):
+    """Releasing in the old mode would open a TRV-ZBT while idle; the coordinator rewrites it."""
+    await store.async_load()
+    await _save(ws_hass, connection, [_device(valve_opening_entity=OPEN, valve_closing_entity=CLOSE)])
+    _pinned(ws_hass)
+    ws_hass.services.async_call.reset_mock()
+
+    await _save(
+        ws_hass,
+        connection,
+        [_device(valve_opening_entity=OPEN, valve_closing_entity=CLOSE, valve_closing_mode="idle_opening")],
+        msg_id=2,
+    )
+
+    assert _number_calls(ws_hass) == []
+
+
+@pytest.mark.asyncio
+async def test_clearing_an_idle_opening_valve_hands_it_back_closed(ws_hass, store, connection):
+    await store.async_load()
+    await _save(
+        ws_hass,
+        connection,
+        [_device(valve_opening_entity=OPEN, valve_closing_entity=CLOSE, valve_closing_mode="idle_opening")],
+    )
+    _pinned(ws_hass)
+    ws_hass.services.async_call.reset_mock()
+
+    await _save(ws_hass, connection, [_device()], msg_id=2)
+
+    assert _number_calls(ws_hass) == [(OPEN, 100.0), (CLOSE, 0.0)]

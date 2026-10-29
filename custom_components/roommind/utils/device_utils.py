@@ -28,6 +28,13 @@ IDLE_ACTION_SETBACK = "setback"
 IDLE_ACTION_LOW = "low"
 DEFAULT_IDLE_SETBACK_OFFSET = 2.0
 
+# What the second valve entity of a TRV with direct valve control means (#482): a closing
+# degree (SONOFF TRVZB, closed position = 100 - value) or the opening while the TRV does
+# not heat (SONOFF TRV-ZBT). Missing = closing degree.
+VALVE_CLOSING_DEGREE = "closing_degree"
+VALVE_IDLE_OPENING = "idle_opening"
+VALVE_CLOSING_MODES = (VALVE_CLOSING_DEGREE, VALVE_IDLE_OPENING)
+
 SETPOINT_MODE_PROPORTIONAL = "proportional"
 SETPOINT_MODE_DIRECT = "direct"
 
@@ -309,25 +316,33 @@ def get_setpoint_offsets(devices: list[dict]) -> dict[str, float]:
     return {eid: off for eid, off in offsets.items() if off}
 
 
-def get_valve_entities(devices: list[dict]) -> dict[str, tuple[str, str]]:
-    """Return {climate_entity_id: (opening_eid, closing_eid)} for TRVs with direct valve control (#413).
+class ValveEntities(NamedTuple):
+    """Number entities of a TRV with direct valve control (#413)."""
 
-    Both degrees are needed: opening X with closing 100 - X pins the valve at X %
-    whatever the TRV's own controller decides.
+    opening: str
+    closing: str
+    idle_opening: bool = False  # ``closing`` is the opening while idle, not a closing degree (#482)
+
+
+def get_valve_entities(devices: list[dict]) -> dict[str, ValveEntities]:
+    """Return {climate_entity_id: ValveEntities} for TRVs with direct valve control (#413).
+
+    Both entities are needed: the second one sets where the valve sits while the TRV's own
+    controller does not heat, so only both together pin the valve at X %.
     """
-    result: dict[str, tuple[str, str]] = {}
+    result: dict[str, ValveEntities] = {}
     for d in devices:
         eid = d.get("entity_id")
         opening = d.get("valve_opening_entity") or None
         closing = d.get("valve_closing_entity") or None
         if eid and opening and closing and d.get("type") == DEVICE_TYPE_TRV:
-            result[eid] = (opening, closing)
+            result[eid] = ValveEntities(opening, closing, d.get("valve_closing_mode") == VALVE_IDLE_OPENING)
     return result
 
 
-def configured_valves(rooms: dict) -> dict[str, tuple[str, str]]:
+def configured_valves(rooms: dict) -> dict[str, ValveEntities]:
     """``get_valve_entities`` across all rooms."""
-    result: dict[str, tuple[str, str]] = {}
+    result: dict[str, ValveEntities] = {}
     for room in rooms.values():
         result.update(get_valve_entities(room.get("devices", [])))
     return result

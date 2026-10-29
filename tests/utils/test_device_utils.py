@@ -833,5 +833,23 @@ def test_valve_trvs_ignore_the_direct_setpoint_mode():
     assert get_direct_setpoint_eids(devices) == {"climate.d"}
     assert get_setpoint_offset(devices, "climate.v") == 0.0
     assert get_setpoint_offset(devices, "climate.d") == 1.0
-    assert get_valve_entities(devices) == {"climate.v": ("number.v_open", "number.v_close")}
+    assert get_valve_entities(devices) == {"climate.v": ("number.v_open", "number.v_close", False)}
     assert configured_valves({"a": {"devices": devices}, "b": {}}) == get_valve_entities(devices)
+
+
+def test_valve_closing_mode_idle_opening():
+    """SONOFF TRV-ZBT: the second entity is the opening while idle, only when the user says so (#482)."""
+    from custom_components.roommind.utils.device_utils import get_valve_entities
+
+    def device(**extra):
+        return {
+            "entity_id": "climate.v",
+            "type": "trv",
+            "valve_opening_entity": "number.v_heating",
+            "valve_closing_entity": "number.v_idle",
+            **extra,
+        }
+
+    assert get_valve_entities([device()])["climate.v"].idle_opening is False
+    assert get_valve_entities([device(valve_closing_mode="closing_degree")])["climate.v"].idle_opening is False
+    assert get_valve_entities([device(valve_closing_mode="idle_opening")])["climate.v"].idle_opening is True

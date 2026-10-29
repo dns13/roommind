@@ -227,7 +227,12 @@
   "devices.valve_direct_control": "Controllo diretto della valvola",
   "devices.valve_opening_entity": "Grado di apertura della valvola",
   "devices.valve_closing_entity": "Grado di chiusura della valvola",
-  "devices.valve_direct_control_hint": "Per le valvole termostatiche di cui Home Assistant può impostare l'apertura (p. es. SONOFF TRVZB: valve_opening_degree e valve_closing_degree, servono entrambe). RoomMind mantiene la valvola all'apertura di cui la stanza ha bisogno, p. es. 30 %, invece di aprirla del tutto: meno movimenti, più silenzio e un calore più uniforme. Svuota i campi o disattiva il controllo del clima e RoomMind le riporta entrambe al 100 %.",
+  "devices.valve_idle_opening_entity": "Apertura della valvola a riposo",
+  "devices.valve_closing_mode": "Il secondo valore è",
+  "devices.valve_closing_mode_closing_degree": "Grado di chiusura (p. es. SONOFF TRVZB)",
+  "devices.valve_closing_mode_idle_opening": "Apertura a riposo (p. es. SONOFF TRV-ZBT)",
+  "devices.valve_closing_mode_hint": "Cosa significa il secondo valore. La maggior parte delle testine ha un grado di chiusura (SONOFF TRVZB: valve_closing_degree). La SONOFF TRV-ZBT ha invece l'apertura della valvola quando non scalda (Zigbee2MQTT: idle_valve_position): scegli «Apertura a riposo», altrimenti la valvola resta aperta quando la stanza non ha bisogno di calore.",
+  "devices.valve_direct_control_hint": "Per le valvole termostatiche di cui Home Assistant può impostare l'apertura (p. es. SONOFF TRVZB: valve_opening_degree e valve_closing_degree, servono entrambe). RoomMind mantiene la valvola all'apertura di cui la stanza ha bisogno, p. es. 30 %, invece di aprirla del tutto: meno movimenti, più silenzio e un calore più uniforme. Svuota i campi o disattiva il controllo del clima e RoomMind restituisce la valvola alla regolazione della testina.",
   "devices.valve_direct_control_toggle_hint": "Per le valvole termostatiche di cui Home Assistant può impostare l'apertura (p. es. SONOFF TRVZB). RoomMind mantiene la valvola all'apertura di cui la stanza ha bisogno, p. es. 30 %, invece di aprirla del tutto: meno movimenti, più silenzio e un calore più uniforme. Disattivato, o con il controllo del clima disattivato, la valvola torna alla regolazione della testina.",
   "devices.valve_direct_badge": "Valvola diretta",
   "devices.info.types_title": "Tipi di dispositivo",
@@ -589,5 +594,5 @@
   "heat_source.ac_min_outdoor_hint": "Sotto questa temperatura disabilita del tutto il riscaldamento tramite AC, per proteggere la pompa di calore.",
   "heat_source.ac_min_outdoor_suffix": "°C",
   "heat_source.summary_disabled": "La scelta intelligente della fonte è disattivata",
-  "devices.valve_closing_entity_hint": "Mantiene la valvola all'apertura impostata, qualunque cosa voglia la regolazione della testina. Viene compilato automaticamente se il dispositivo ne ha uno."
+  "devices.valve_closing_entity_hint": "Mantiene la valvola all'apertura impostata, qualunque cosa voglia la regolazione della testina. Viene compilato automaticamente se il dispositivo lo chiama come il grado di apertura (valve_closing_degree)."
 }

@@ -153,7 +153,8 @@ These per-room entities still work but will be removed in a future release. If a
 | `sensor.roommind_{area_id}_target_temp` | Target temperature of `climate.roommind_{area_id}` |
 | `sensor.roommind_{area_id}_mode` | `hvac_action` of `climate.roommind_{area_id}` |
 | `climate.roommind_{area_id}_override` | `climate.set_temperature` or a preset on `climate.roommind_{area_id}`. Unlike the old entity, an override there ends at the next schedule change. |
-| `switch.roommind_{area_id}_climate_control` | `climate.turn_on` / `climate.turn_off` on `climate.roommind_{area_id}`. Unlike the old switch, off also switches the devices off. |
+
+`switch.roommind_{area_id}_climate_control` is not deprecated and stays. Its off only stops RoomMind controlling the room and leaves the devices as they are; `climate.turn_off` on the room entity switches them off.
 
 ## Troubleshooting
 

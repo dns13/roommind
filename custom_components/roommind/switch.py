@@ -13,7 +13,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, VACATION_SENTINEL_UNTIL
 from .coordinator import RoomMindCoordinator
-from .deprecation import warn_deprecated_use
 
 
 def _create_room_switches(
@@ -99,13 +98,11 @@ class RoomMindClimateControlSwitch(CoordinatorEntity, SwitchEntity):
         return bool(room.get("climate_control_enabled", True)) if room else True
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        warn_deprecated_use(self.entity_id, self._area_id)
         store = self.coordinator.hass.data[DOMAIN]["store"]
         await store.async_update_room(self._area_id, {"climate_control_enabled": True})
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        warn_deprecated_use(self.entity_id, self._area_id)
         store = self.coordinator.hass.data[DOMAIN]["store"]
         await store.async_update_room(self._area_id, {"climate_control_enabled": False})
         await self.coordinator.async_request_refresh()

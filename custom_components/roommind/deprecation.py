@@ -15,8 +15,9 @@ from .coordinator import _match_room_entity
 _LOGGER = logging.getLogger(__name__)
 
 DEPRECATED_ENTITIES_ISSUE = "deprecated_entities"
-# Per-room unique_id suffixes the room climate entity (`_climate`) replaces.
-DEPRECATED_ROOM_SUFFIXES = ("_target_temp", "_mode", "_override", "_climate_control")
+# Per-room unique_id suffixes the room climate entity (`_climate`) replaces. The climate control
+# switch stays: its off lets go of the devices, the room entity's off switches them off (#481).
+DEPRECATED_ROOM_SUFFIXES = ("_target_temp", "_mode", "_override")
 
 _warned: set[str] = set()
 

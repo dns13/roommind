@@ -145,7 +145,7 @@ A `Direct` device's own offset and, for ACs, the learned idle sensor offset (see
 
 This lets the device back off instead of shutting off completely, so short pauses between runs don't turn into off/on cycles.
 
-Long pauses end in off: once the room has had no heating or cooling demand for an hour, and RoomMind's plan expects no run in the device's mode for the next hour, the device is turned off. When demand returns, RoomMind switches it back on as usual. This needs the predictive control (Full Control with an external sensor and a trained model). In Managed Mode, with `Simple` control, or while the model is still learning, the setback stays until the next run.
+By default the device stays on in setback however long the pause is. With **Turn off after an hour without demand** (below the idle setting) long pauses end in off: once the room has had no heating or cooling demand for an hour, and RoomMind's plan expects no run in the device's mode for the next hour, the device is turned off. When demand returns, RoomMind switches it back on as usual. This needs the predictive control (Full Control with an external sensor and a trained model). In Managed Mode, with `Simple` control, or while the model is still learning, the setback stays until the next run.
 
 Important:
 

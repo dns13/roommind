@@ -323,6 +323,7 @@ def test_build_device_states_with_ha_state(hass):
     assert dev["type"] == "ac"
     assert dev["idle_action"] == "fan_only"
     assert dev["idle_fan_mode"] == "low"
+    assert dev["setback_auto_off"] is False
     assert dev["ha_state"] == "heat"
     assert dev["hvac_modes"] == ["off", "heat", "cool", "fan_only"]
     assert dev["current_temperature"] == 21.5

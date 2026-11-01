@@ -390,6 +390,8 @@ async def websocket_list_rooms(
                     vol.Optional("heating_system_type", default=""): vol.In(["", "radiator", "underfloor"]),
                     vol.Optional("idle_action", default="off"): vol.In(["off", "fan_only", "setback", "low"]),
                     vol.Optional("idle_fan_mode", default="low"): str,
+                    # No default: devices without it keep their stored form (#255)
+                    vol.Optional("setback_auto_off"): bool,
                     vol.Optional("setpoint_mode", default="proportional"): vol.In(["proportional", "direct"]),
                     vol.Optional("setpoint_offset", default=0.0): vol.All(
                         vol.Coerce(float), vol.Range(min=SETPOINT_OFFSET_MIN, max=SETPOINT_OFFSET_MAX)

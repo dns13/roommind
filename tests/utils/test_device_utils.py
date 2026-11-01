@@ -22,6 +22,7 @@ from custom_components.roommind.utils.device_utils import (
     get_entity_ids_by_type,
     get_idle_action,
     get_room_heating_system_type,
+    get_setback_auto_off,
     get_setpoint_offset,
     get_setpoint_offsets,
     get_trv_eids,
@@ -853,3 +854,14 @@ def test_valve_closing_mode_idle_opening():
     assert get_valve_entities([device()])["climate.v"].idle_opening is False
     assert get_valve_entities([device(valve_closing_mode="closing_degree")])["climate.v"].idle_opening is False
     assert get_valve_entities([device(valve_closing_mode="idle_opening")])["climate.v"].idle_opening is True
+
+
+def test_get_setback_auto_off_is_opt_in():
+    """Missing field or device means the setback is kept (#255)."""
+    devices = [
+        {"entity_id": "climate.a", "type": "ac", "idle_action": "setback"},
+        {"entity_id": "climate.b", "type": "ac", "idle_action": "setback", "setback_auto_off": True},
+    ]
+    assert get_setback_auto_off(devices, "climate.a") is False
+    assert get_setback_auto_off(devices, "climate.b") is True
+    assert get_setback_auto_off(devices, "climate.missing") is False

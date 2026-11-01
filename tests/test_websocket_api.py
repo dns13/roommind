@@ -3229,3 +3229,19 @@ async def test_save_room_preheat_switch_roundtrip(ws_hass, store, connection):
         ws_hass, connection, {"id": 11, "type": "roommind/rooms/save", "area_id": "bedroom", "preheat_enabled": False}
     )
     assert store.get_room("bedroom")["preheat_enabled"] is False
+
+
+def test_setback_auto_off_schema_has_no_default():
+    """Opt-in per device (#255): absent stays absent, so stored devices keep their form."""
+    import voluptuous as vol
+
+    schema = websocket_save_room._ws_schema
+
+    def _validate(device):
+        return schema({"type": "roommind/rooms/save", "id": 1, "area_id": "lr", "devices": [device]})["devices"][0]
+
+    assert "setback_auto_off" not in _validate({"entity_id": "climate.ac", "type": "ac", "idle_action": "setback"})
+    on = _validate({"entity_id": "climate.ac", "type": "ac", "idle_action": "setback", "setback_auto_off": True})
+    assert on["setback_auto_off"] is True
+    with pytest.raises(vol.Invalid):
+        _validate({"entity_id": "climate.ac", "type": "ac", "setback_auto_off": "yes"})

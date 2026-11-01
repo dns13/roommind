@@ -282,6 +282,12 @@ def get_idle_action(devices: list[dict], entity_id: str) -> tuple[str, str]:
     )
 
 
+def get_setback_auto_off(devices: list[dict], entity_id: str) -> bool:
+    """True if a setback device may be switched off after a long idle with no run ahead (#255)."""
+    dev = get_device_by_eid(devices, entity_id)
+    return bool(dev and dev.get("setback_auto_off", False))
+
+
 def get_direct_setpoint_eids(devices: list[dict]) -> set[str]:
     """Return entity IDs of devices with setpoint_mode='direct'."""
     return {d["entity_id"] for d in devices if d.get("entity_id") and _is_direct(d)}

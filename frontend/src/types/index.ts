@@ -84,6 +84,7 @@ export interface DeviceConfig {
   heating_system_type?: string;
   idle_action?: "off" | "fan_only" | "setback" | "low"; // default "off"
   idle_fan_mode?: string; // default "low"
+  setback_auto_off?: boolean; // setback ends in off after an hour without demand, default off (#255)
   setpoint_mode?: "proportional" | "direct"; // default "proportional"
   setpoint_offset?: number; // °C added to the room target in direct mode, default 0
   coil_dry?: "inherit" | "on" | "off"; // default "inherit"

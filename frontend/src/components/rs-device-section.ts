@@ -822,6 +822,19 @@ export class RsDeviceSection extends LitElement {
                     </div>`
                   : nothing
               }
+              ${
+                device.idle_action === "setback" && this.selectedTempSensor
+                  ? html`<div class="detail-field">
+                      <rs-toggle-row
+                        .label=${localize("devices.setback_auto_off", lang)}
+                        .hint=${localize("devices.setback_auto_off_hint", lang)}
+                        .checked=${device.setback_auto_off ?? false}
+                        @toggle-changed=${(e: CustomEvent<boolean>) =>
+                          this._onSetbackAutoOffChange(entityId, e.detail)}
+                      ></rs-toggle-row>
+                    </div>`
+                  : nothing
+              }
 
               <div class="detail-field">
                 <ha-select
@@ -1238,6 +1251,17 @@ export class RsDeviceSection extends LitElement {
       if (idleAction === "fan_only" && !d.idle_fan_mode) {
         updated.idle_fan_mode = "low";
       }
+      return updated;
+    });
+    this._fireDeviceChanged(newDevices);
+  }
+
+  private _onSetbackAutoOffChange(entityId: string, enabled: boolean): void {
+    const newDevices = this.devices.map((d) => {
+      if (d.entity_id !== entityId) return d;
+      const updated = { ...d };
+      if (enabled) updated.setback_auto_off = true;
+      else delete updated.setback_auto_off;
       return updated;
     });
     this._fireDeviceChanged(newDevices);

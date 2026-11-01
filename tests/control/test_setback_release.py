@@ -1,4 +1,4 @@
-"""A setback device switches off after an hour of idle when the MPC plan expects no run in its mode (#255)."""
+"""A setback device with setback_auto_off switches off after an hour of idle when the MPC plan expects no run in its mode (#255)."""
 
 from __future__ import annotations
 
@@ -41,17 +41,18 @@ def _state(hvac: str, temperature: float):
     return state
 
 
-def _devices(idle_action: str = "setback") -> list[dict]:
-    return [
-        {
-            "entity_id": EID,
-            "type": "ac",
-            "role": "auto",
-            "heating_system_type": "",
-            "idle_action": idle_action,
-            "idle_fan_mode": "",
-        }
-    ]
+def _devices(idle_action: str = "setback", auto_off: bool = True) -> list[dict]:
+    device = {
+        "entity_id": EID,
+        "type": "ac",
+        "role": "auto",
+        "heating_system_type": "",
+        "idle_action": idle_action,
+        "idle_fan_mode": "",
+    }
+    if auto_off:
+        device["setback_auto_off"] = True
+    return [device]
 
 
 def _idle_for(minutes: float) -> float:
@@ -67,11 +68,12 @@ def _controller(
     has_external_sensor=True,
     idle_since: float | None = None,
     previous_mode: str = MODE_IDLE,
+    auto_off: bool = True,
 ):
     hass = build_hass()
     hass.states.get = MagicMock(return_value=_state(hvac, temperature))
     room = make_room(thermostats=[], acs=[EID])
-    room["devices"] = _devices()
+    room["devices"] = _devices(auto_off=auto_off)
     ctrl = MPCController(
         hass,
         room,
@@ -126,6 +128,17 @@ async def test_heat_setback_turns_off_when_no_heating_is_planned(monkeypatch):
 
     assert _turned_off(hass)
     assert 19.0 not in [d["temperature"] for d in _calls(hass, "set_temperature")]
+
+
+@pytest.mark.asyncio
+async def test_setback_without_auto_off_never_turns_off(monkeypatch):
+    hass, ctrl = _controller("heat", 21.0, [MODE_IDLE] * 36, monkeypatch, auto_off=False)
+
+    mode, _ = ctrl._evaluate_mpc(21.3, HEAT_TARGETS)
+    await ctrl.async_apply(mode, HEAT_TARGETS, power_fraction=0.0, current_temp=21.3)
+
+    assert not _turned_off(hass)
+    assert 19.0 in [d["temperature"] for d in _calls(hass, "set_temperature")]
 
 
 @pytest.mark.asyncio

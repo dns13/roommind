@@ -1,20 +1,20 @@
 name: multisplit-setback-release
 extends: multisplit-compressor
 description: >
-  Multi-split heating with idle action "setback" on every indoor unit. Setback only
-  bridges short pauses: when the MPC plan expects no heating for an hour (evening
-  cool-down into the eco block), the unit is switched off instead of staying in heat
-  at the setback target all night (#255, #87).
+  Multi-split heating with idle action "setback" and "Turn off after an hour without
+  demand" on every indoor unit. Setback then only bridges short pauses: when the MPC
+  plan expects no heating for an hour (evening cool-down into the eco block), the unit
+  is switched off instead of staying in heat at the setback target all night (#255, #87).
 refs: [255, 87]
 tags: [compressor, ac, idle]
 roommind:
   rooms:
     wohnzimmer:
-      devices: [{entity_id: climate.wz_split, type: ac, idle_action: setback}]
+      devices: [{entity_id: climate.wz_split, type: ac, idle_action: setback, setback_auto_off: true}]
     schlafzimmer:
-      devices: [{entity_id: climate.sz_split, type: ac, idle_action: setback}]
+      devices: [{entity_id: climate.sz_split, type: ac, idle_action: setback, setback_auto_off: true}]
     buero:
-      devices: [{entity_id: climate.buero_split, type: ac, idle_action: setback}]
+      devices: [{entity_id: climate.buero_split, type: ac, idle_action: setback, setback_auto_off: true}]
 expect:
   - {invariant: min_run_commanded}
   - {invariant: min_run_hold_keeps_setpoint}

@@ -57,6 +57,7 @@ from ..utils.device_utils import (
     get_all_entity_ids,
     get_direct_setpoint_eids,
     get_idle_action,
+    get_setback_auto_off,
     get_setpoint_offset,
     get_setpoint_offsets,
     get_trv_eids,
@@ -857,8 +858,8 @@ MAX_HORIZON_HOURS = 12
 HORIZON_MULTIPLIER = 2.5
 DEFAULT_OUTDOOR_TEMP_FALLBACK = 10.0
 SAFETY_GUARD_MIN_BLOCKS = 6  # Minimum guard horizon (30 min floor)
-# Setback bridges short pauses (#87). After SETBACK_HOLD_MINUTES of idle a setback device
-# is switched off if the plan has no run of its kind for SETBACK_RELEASE_BLOCKS (#255).
+# Setback bridges short pauses (#87). After SETBACK_HOLD_MINUTES of idle a setback device with
+# setback_auto_off is switched off if the plan has no run of its kind for SETBACK_RELEASE_BLOCKS (#255).
 # The plan alone is no gate: after an AC heating run it saw an hour of idle where the
 # room called for heat again after 15-30 min (sim multisplit-setback-release).
 SETBACK_HOLD_MINUTES = 60
@@ -2470,9 +2471,15 @@ class MPCController:
                     use_setpoint_offset=self.has_external_sensor,
                     head_offset=self._head_offset(eid, "idle"),
                     force_off=force_off,
-                    release_setback=_SETBACK_RELEASE_ALL if eid in sitting_out else self._setback_release,
+                    release_setback=self._release_setback_for(eid, sitting_out),
                 )
                 await self._async_release_valve(eid)
+
+    def _release_setback_for(self, eid: str, sitting_out: set[str]) -> frozenset[str]:
+        """Modes in which ``eid``'s setback ends in off: always while sitting out, else only when opted in (#255)."""
+        if eid in sitting_out:
+            return _SETBACK_RELEASE_ALL
+        return self._setback_release if get_setback_auto_off(self._devices, eid) else frozenset()
 
     async def _async_sit_out(self, eid: str, targets: TargetTemps) -> None:
         """Idle an AC through a heating run it may not take part in (heat only, #476).
